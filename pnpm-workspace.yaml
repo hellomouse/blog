@@ -1,0 +1,4 @@
+packages:
+  - jsx2jsx
+  - web
+  - micromark-extension-mdx-jsx

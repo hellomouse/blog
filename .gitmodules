@@ -1,0 +1,3 @@
+[submodule "micromark-extension-mdx-jsx"]
+	path = micromark-extension-mdx-jsx
+	url = https://github.com/hellomouse/micromark-extension-mdx-jsx
