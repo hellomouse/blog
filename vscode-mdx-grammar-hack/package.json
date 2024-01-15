@@ -1,0 +1,19 @@
+{
+  "name": "vscode-hellomouse-mdx-hack",
+  "displayName": "vscode-hellomouse-mdx-hack",
+  "description": "glues autolinks into mdx grammar",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "grammars": [{
+      "path": "./syntaxes/mdx-injection.tmLanguage.json",
+      "scopeName": "source.mdx.injection-hack",
+      "injectTo": ["source.mdx"]
+    }]
+  }
+}

@@ -1,0 +1,28 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"scopeName": "source.mdx.injection-hack",
+	"injectionSelector": "L:source.mdx",
+	"name": "MDX",
+	"patterns": [
+		{
+			"include": "#autolink"
+		}
+	],
+	"repository": {
+		"autolink": {
+			"name": "meta.inet.link.markdown",
+			"match": "(<)([\\w\\-]+:[?/].*?)(>)",
+			"captures": {
+				"1": {
+					"name": "punctuation.definition.link.markdown"
+				},
+				"2": {
+					"name": "markup.underline.link.markdown"
+				},
+				"3": {
+					"name": "punctuation.definition.link.markdown"
+				}
+			}
+		}
+	}
+}
