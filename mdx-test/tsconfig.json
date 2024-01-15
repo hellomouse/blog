@@ -31,7 +31,7 @@
             "remark-math",
             "remark-frontmatter",
             "remark-directive",
-            "@hellomouse/remark-mdx-hack"
+            "@hellomouse/remark-mdx-glue"
         ]
     }
 }

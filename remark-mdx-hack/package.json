@@ -1,5 +1,5 @@
 {
-  "name": "@hellomouse/remark-mdx-hack",
+  "name": "@hellomouse/remark-mdx-glue",
   "type": "module",
   "version": "0.0.1",
   "description": "MDX but worse",

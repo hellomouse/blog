@@ -18,7 +18,7 @@ importers:
         specifier: ^7.23.6
         version: 7.23.6
       '@hellomouse/micromark-extension-mdx-jsx':
-        specifier: workspace:^0.1.0
+        specifier: workspace:^0.1.1
         version: link:../micromark-extension-mdx-jsx
       acorn:
         specifier: ^8.11.3
@@ -102,7 +102,7 @@ importers:
 
   mdx-test:
     devDependencies:
-      '@hellomouse/remark-mdx-hack':
+      '@hellomouse/remark-mdx-glue':
         specifier: workspace:^0.0.1
         version: link:../remark-mdx-hack
       remark-directive:
