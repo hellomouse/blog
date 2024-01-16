@@ -104,7 +104,7 @@ importers:
     devDependencies:
       '@hellomouse/remark-mdx-glue':
         specifier: workspace:^0.0.1
-        version: link:../remark-mdx-hack
+        version: link:../remark-mdx-glue
       remark-directive:
         specifier: ^3.0.0
         version: 3.0.0
@@ -197,7 +197,7 @@ importers:
         specifier: ^0.56.0
         version: 0.56.0(webpack@5.89.0)
 
-  remark-mdx-hack:
+  remark-mdx-glue:
     dependencies:
       '@hellomouse/micromark-extension-mdx-jsx':
         specifier: workspace:^0.1.1

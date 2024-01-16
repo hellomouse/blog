@@ -7,7 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "iczero <iczero@hellomouse.net>",
   "license": "ISC",
   "dependencies": {
     "@babel/core": "^7.23.7",

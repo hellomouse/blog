@@ -4,15 +4,39 @@ import { Parser } from 'acorn';
 import acornJsx from 'acorn-jsx';
 import babelParser from '@babel/parser';
 import generator from '@babel/generator';
-import parse, { micromarkTestTokenize, options } from './build/src/parse.js';
+import parse, { mdxParseOptions } from './build/src/parse.js';
 import estreeToBabel from 'estree-to-babel';
 
-/*
-const input = `\
-test {3} <>{3}</> <span class="test">four</span>
-`;
-let out = parse(input);
-*/
+import { parse as mmParse, preprocess as mmPreprocess } from 'micromark';
+import { subtokenize as mmSubtokenize } from 'micromark-util-subtokenize';
+
+function micromarkTestTokenize(input, subtokenize = -1) {
+  let events = mmParse({
+    extensions: [
+      disableFeatures(),
+      mdxJsx(options),
+      mdxExpression(options),
+      mdxjsEsm(options),
+      gfmFootnote(),
+      gfmStrikethrough(),
+      gfmTable(),
+      math(),
+      directive(),
+      frontmatter(),
+    ],
+  })
+    .document()
+    .write(mmPreprocess()(input, null, true));
+  
+  if (subtokenize < 0) {
+    while (!mmSubtokenize(events));
+  } else {
+    for (let i = 0; i < subtokenize; i++) {
+      if (mmSubtokenize(events)) break;
+    }
+  }
+  return events;
+}
 
 let jsParser = Parser.extend(acornJsx());
 
@@ -39,6 +63,6 @@ Object.assign(interact.context, {
     console.log(out.map(v => `${v[0].padEnd(5)} ${v[1].type}`).join('\n'));
   },
   inspectOpts,
-  parseOpts: options,
+  parseOpts: mdxParseOptions,
   top: globalThis,
 });

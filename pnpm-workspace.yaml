@@ -2,6 +2,6 @@ packages:
   - jsx2jsx
   - web
   - micromark-extension-mdx-jsx
-  - remark-mdx-hack
+  - remark-mdx-glue
   - vscode-mdx-grammar-hack
   - mdx-test
