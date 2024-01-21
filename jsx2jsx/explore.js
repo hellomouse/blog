@@ -4,39 +4,8 @@ import { Parser } from 'acorn';
 import acornJsx from 'acorn-jsx';
 import babelParser from '@babel/parser';
 import generator from '@babel/generator';
-import parse, { mdxParseOptions } from './build/src/parse.js';
+import parse, { mdxParseOptions, micromarkTestTokenize } from './build/src/parse.js';
 import estreeToBabel from 'estree-to-babel';
-
-import { parse as mmParse, preprocess as mmPreprocess } from 'micromark';
-import { subtokenize as mmSubtokenize } from 'micromark-util-subtokenize';
-
-function micromarkTestTokenize(input, subtokenize = -1) {
-  let events = mmParse({
-    extensions: [
-      disableFeatures(),
-      mdxJsx(options),
-      mdxExpression(options),
-      mdxjsEsm(options),
-      gfmFootnote(),
-      gfmStrikethrough(),
-      gfmTable(),
-      math(),
-      directive(),
-      frontmatter(),
-    ],
-  })
-    .document()
-    .write(mmPreprocess()(input, null, true));
-  
-  if (subtokenize < 0) {
-    while (!mmSubtokenize(events));
-  } else {
-    for (let i = 0; i < subtokenize; i++) {
-      if (mmSubtokenize(events)) break;
-    }
-  }
-  return events;
-}
 
 let jsParser = Parser.extend(acornJsx());
 

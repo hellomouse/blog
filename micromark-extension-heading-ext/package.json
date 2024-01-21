@@ -1,0 +1,24 @@
+{
+  "name": "@hellomouse/micromark-extension-heading-ext",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Markdown ATX headings, extended",
+  "main": "build/src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "https://github.com/hellomouse/blog/tree/master/micromark-extension-heading-ext",
+  "author": "iczero <iczero@hellomouse.net>",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "micromark-util-types": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "micromark-factory-space": "^2.0.0",
+    "micromark-util-character": "^2.0.0",
+    "micromark-util-chunked": "^2.0.0",
+    "micromark-util-symbol": "^2.0.0"
+  }
+}

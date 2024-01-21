@@ -7,7 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": "https://github.com/hellomouse/blog/tree/master/remark-mdx-hack",
+  "repository": "https://github.com/hellomouse/blog/tree/master/remark-mdx-glue",
   "author": "iczero <iczero@hellomouse.net>",
   "license": "ISC",
   "dependencies": {
