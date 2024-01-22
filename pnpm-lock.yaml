@@ -133,9 +133,15 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0
     devDependencies:
+      '@types/mdast':
+        specifier: ^4.0.3
+        version: 4.0.3
       '@types/node':
         specifier: ^20.0.0
         version: 20.10.6
+      mdast-util-from-markdown:
+        specifier: ^2.0.0
+        version: 2.0.0
       micromark-util-types:
         specifier: ^2.0.0
         version: 2.0.0
@@ -227,6 +233,9 @@ importers:
 
   remark-mdx-glue:
     dependencies:
+      '@hellomouse/micromark-extension-heading-ext':
+        specifier: workspace:^0.0.1
+        version: link:../micromark-extension-heading-ext
       '@hellomouse/micromark-extension-mdx-jsx':
         specifier: workspace:^0.1.1
         version: link:../micromark-extension-mdx-jsx

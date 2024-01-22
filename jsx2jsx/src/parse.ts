@@ -17,7 +17,7 @@ import { frontmatter } from 'micromark-extension-frontmatter';
 import { gfmFootnote } from 'micromark-extension-gfm-footnote';
 import { gfmStrikethrough } from 'micromark-extension-gfm-strikethrough';
 import { gfmTable } from 'micromark-extension-gfm-table';
-import { headingAtxExt } from '@hellomouse/micromark-extension-heading-ext';
+import { headingAtxExt, headingAtxExtFromMarkdown } from '@hellomouse/micromark-extension-heading-ext';
 import { math } from 'micromark-extension-math';
 import { mdxExpression } from 'micromark-extension-mdx-expression';
 import { mdxjsEsm } from 'micromark-extension-mdxjs-esm';
@@ -45,6 +45,7 @@ export const fromMarkdownOptions: FromMarkdownOptions = {
     mdxJsx(mdxParseOptions),
     mdxExpression(mdxParseOptions as any),
     mdxjsEsm(mdxParseOptions as any),
+    headingAtxExt(),
     gfmFootnote(),
     gfmStrikethrough({ singleTilde: false }),
     gfmTable(),
@@ -56,6 +57,7 @@ export const fromMarkdownOptions: FromMarkdownOptions = {
     mdxJsxFromMarkdown(),
     mdxExpressionFromMarkdown(),
     mdxjsEsmFromMarkdown(),
+    headingAtxExtFromMarkdown(),
     gfmFootnoteFromMarkdown(),
     gfmStrikethroughFromMarkdown(),
     gfmTableFromMarkdown(),

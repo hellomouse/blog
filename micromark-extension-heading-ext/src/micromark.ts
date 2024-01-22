@@ -1,8 +1,9 @@
-import assert from 'node:assert/strict';
-import { codes, types } from 'micromark-util-symbol';
-import type { Code, Construct, Effects, State, TokenizeContext, Event } from 'micromark-util-types';
-import { asciiAlphanumeric, markdownLineEnding, markdownSpace } from 'micromark-util-character';
 import { factorySpace } from 'micromark-factory-space';
+import { asciiAlphanumeric, markdownLineEnding, markdownSpace } from 'micromark-util-character';
+import { splice } from 'micromark-util-chunked';
+import { codes, constants, types } from 'micromark-util-symbol';
+import type { Code, Construct, Effects, Event, State, Token, TokenizeContext } from 'micromark-util-types';
+import assert from 'node:assert/strict';
 
 declare module 'micromark-util-types' {
   interface TokenTypeMap {
@@ -23,6 +24,7 @@ export const headingAtxExt: Construct = {
 };
 
 export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: State, nok: State): State {
+  let depth = 0;
   return start;
 
   /**
@@ -50,7 +52,8 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
    * ```
    */
   function startSequence(code: Code): State | undefined {
-    if (code === codes.numberSign) {
+    if (code === codes.numberSign && depth < constants.atxHeadingOpeningFenceSizeMax) {
+      depth++;
       effects.consume(code);
       return startSequence;
     } else if (markdownSpace(code)) {
@@ -198,7 +201,7 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
       if (code === codes.eof || markdownLineEnding(code)) {
         return ok(code);
       } else if (markdownSpace(code)) {
-        return factorySpace(effects, maybeEndSequence, types.whitespace)(code);
+        return effects.attempt({ tokenize: endLine }, ok, maybeEndSequence);
       } else {
         // note: a space is needed between the identifier and end sequence
         return nok(code);
@@ -210,15 +213,16 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
      * 
      * ```markdown
      * > | ## Test {#test} ##
-     *                     ^^
+     *                    ^^^
      * ```
      */
     function maybeEndSequence(code: Code): State | undefined {
-      if (code === codes.numberSign) {
+      if (markdownSpace(code)) {
+        return factorySpace(effects, maybeEndSequence, types.whitespace);
+      } else if (code === codes.numberSign) {
         return effects.attempt({ tokenize: endSequence }, ok, nok)(code);
-      } else if (code === codes.eof || markdownLineEnding(code)) {
-        return ok(code);
       } else {
+        // afterBlock handled trailing spaces already
         return nok(code);
       }
     }
@@ -243,12 +247,32 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
     }
 
     function within(code: Code): State | undefined {
-      if (markdownLineEnding(code) || code === codes.eof) {
-        effects.exit('atxHeadingExtEndSequence');
-        return ok(code);
-      } else if (code === codes.numberSign) {
+      if (code === codes.numberSign) {
         effects.consume(code);
         return within;
+      } else {
+        effects.exit('atxHeadingExtEndSequence');
+        return effects.attempt({ tokenize: endLine }, ok, nok);
+      }
+    }
+  }
+
+  /**
+   * Tokenizer for optional spaces before end of line
+   * 
+   * ```markdown
+   * > | ## Heading
+   *                ^^
+   * ```
+   */
+  function endLine(this: TokenizeContext, effects: Effects, ok: State, nok: State): State {
+    return tryLine;
+
+    function tryLine(code: Code): State | undefined {
+      if (markdownSpace(code)) {
+        return factorySpace(effects, tryLine, types.lineSuffix);
+      } else if (code === codes.eof || markdownLineEnding(code)) {
+        return ok(code);
       } else {
         return nok(code);
       }
@@ -267,5 +291,93 @@ export function resolveHeading(events: Event[], context: TokenizeContext): Event
   // +atxHeadingExt +-atxHeadingExtStartSequence +-whitespace +chunkText ... -chunkText
   // [+-atxHeadingExtIdentifierMarker +-atxHeadingExtIdentifier +-atxHeadingExtIdentifierMarker]
   // [+-atxHeadingExtEndSequence] -atxHeadingExt
+
+  let index = 0;
+  function assertEvent(eventType: Event[0], tokenType: Event[1]['type']) {
+    assert(events[index][0] === eventType && events[index][1].type === tokenType);
+  }
+
+  // TODO: probably do not need to be absolutely paranoid
+  assertEvent('enter', 'atxHeadingExt');
+  index += 1;
+  assertEvent('enter', 'atxHeadingExtStartSequence');
+  index += 1;
+  assertEvent('exit', 'atxHeadingExtStartSequence');
+  index += 1;
+  assertEvent('enter', types.whitespace);
+  index += 1;
+  assertEvent('exit', types.whitespace);
+  index += 1;
+  assertEvent('enter', 'atxHeadingExtText');
+  let firstTextIndex = index;
+  let replaceTo: number | null = null;
+
+  index = events.length - 1;
+  assertEvent('exit', 'atxHeadingExt');
+  index -= 1;
+
+  if (events[index][1].type === types.lineSuffix) {
+    assertEvent('exit', types.lineSuffix);
+    index -= 1;
+    assertEvent('enter', types.lineSuffix);
+    index -= 1;
+  }
+
+  if (events[index][1].type === 'atxHeadingExtEndSequence') {
+    assertEvent('exit', 'atxHeadingExtEndSequence');
+    index -= 1;
+    assertEvent('enter', 'atxHeadingExtEndSequence');
+    index -= 1;
+    assertEvent('exit', types.whitespace);
+    index -= 1;
+    assertEvent('enter', types.whitespace);
+    index -= 1;
+  }
+
+  if (events[index][1].type === 'atxHeadingExtIdentifierMarker') {
+    assertEvent('exit', 'atxHeadingExtIdentifierMarker');
+    index -= 1;
+    assertEvent('enter', 'atxHeadingExtIdentifierMarker');
+    index -= 1;
+    assertEvent('exit', 'atxHeadingExtIdentifier');
+    index -= 1;
+    assertEvent('enter', 'atxHeadingExtIdentifier');
+    index -= 1;
+    assertEvent('exit', 'atxHeadingExtIdentifierMarker');
+    index -= 1;
+    assertEvent('enter', 'atxHeadingExtIdentifierMarker');
+    index -= 1;
+    assertEvent('exit', types.whitespace);
+    index -= 1;
+    assertEvent('enter', types.whitespace);
+    index -= 1;
+  }
+
+  if (events[index][1].type === types.whitespace) {
+    assertEvent('exit', types.whitespace);
+    replaceTo = index + 1;
+    index -= 1;
+    assertEvent('enter', types.whitespace);
+    index -= 1;
+  }
+
+  assertEvent('exit', 'atxHeadingExtText');
+  let lastTextIndex = index;
+  if (replaceTo === null) {
+    replaceTo = lastTextIndex + 1;
+  }
+
+  let chunkText: Token = {
+    type: types.chunkText,
+    contentType: constants.contentTypeText,
+    start: events[firstTextIndex][1].start,
+    end: events[lastTextIndex][1].end,
+  };
+
+  splice(events, firstTextIndex, replaceTo - firstTextIndex, [
+    ['enter', chunkText, context],
+    ['exit', chunkText, context],
+  ]);
+
   return events;
 }

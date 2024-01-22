@@ -1,10 +1,13 @@
 import { Parser } from 'acorn';
 import acornJsx from 'acorn-jsx';
 import { mdxJsx, mdastExtraJsxFlow } from '@hellomouse/micromark-extension-mdx-jsx';
+import { headingAtxExt, headingAtxExtFromMarkdown } from '@hellomouse/micromark-extension-heading-ext';
 
 const LEFT_ANGLE_BRACKET = '<'.charCodeAt(0);
 export default function mdxHackPlugin() {
   let data = this.data();
+  data.micromarkExtensions.push(headingAtxExt());
+  data.fromMarkdownExtensions.push(headingAtxExtFromMarkdown());
   data.fromMarkdownExtensions.push(mdastExtraJsxFlow());
   let ext = mdxJsx({
     acorn: Parser.extend(acornJsx()),
