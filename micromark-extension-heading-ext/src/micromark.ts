@@ -287,11 +287,6 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
 };
 
 export function resolveHeading(events: Event[], context: TokenizeContext): Event[] {
-  // TODO: resolve to something like:
-  // +atxHeadingExt +-atxHeadingExtStartSequence +-whitespace +chunkText ... -chunkText
-  // [+-atxHeadingExtIdentifierMarker +-atxHeadingExtIdentifier +-atxHeadingExtIdentifierMarker]
-  // [+-atxHeadingExtEndSequence] -atxHeadingExt
-
   let index = 0;
   function assertEvent(eventType: Event[0], tokenType: Event[1]['type']) {
     assert(events[index][0] === eventType && events[index][1].type === tokenType);

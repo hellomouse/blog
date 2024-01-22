@@ -3,9 +3,11 @@ import util from 'node:util';
 import { Parser } from 'acorn';
 import acornJsx from 'acorn-jsx';
 import babelParser from '@babel/parser';
+import js from '@babel/types';
 import generator from '@babel/generator';
 import parse, { mdxParseOptions, micromarkTestTokenize } from './build/src/parse.js';
-import estreeToBabel from 'estree-to-babel';
+import * as gen from './build/src/transform.js';
+import { estreeToBabel } from './build/src/transform.js';
 
 let jsParser = Parser.extend(acornJsx());
 
@@ -34,4 +36,6 @@ Object.assign(interact.context, {
   inspectOpts,
   parseOpts: mdxParseOptions,
   top: globalThis,
+  js,
+  gen,
 });

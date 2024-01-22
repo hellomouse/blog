@@ -1,3 +1,4 @@
+import { headingAtxExt, headingAtxExtFromMarkdown } from '@hellomouse/micromark-extension-heading-ext';
 import { mdastExtraJsxFlow, mdxJsx, Options as MdxJsxOptions } from '@hellomouse/micromark-extension-mdx-jsx';
 import { Parser } from 'acorn';
 import acornJsx from 'acorn-jsx';
@@ -17,7 +18,6 @@ import { frontmatter } from 'micromark-extension-frontmatter';
 import { gfmFootnote } from 'micromark-extension-gfm-footnote';
 import { gfmStrikethrough } from 'micromark-extension-gfm-strikethrough';
 import { gfmTable } from 'micromark-extension-gfm-table';
-import { headingAtxExt, headingAtxExtFromMarkdown } from '@hellomouse/micromark-extension-heading-ext';
 import { math } from 'micromark-extension-math';
 import { mdxExpression } from 'micromark-extension-mdx-expression';
 import { mdxjsEsm } from 'micromark-extension-mdxjs-esm';

@@ -17,6 +17,9 @@ importers:
       '@babel/parser':
         specifier: ^7.23.6
         version: 7.23.6
+      '@babel/types':
+        specifier: ^7.23.6
+        version: 7.23.6
       '@hellomouse/micromark-extension-heading-ext':
         specifier: workspace:^0.0.1
         version: link:../micromark-extension-heading-ext
@@ -90,9 +93,18 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0
     devDependencies:
+      '@types/estree':
+        specifier: ^1.0.0
+        version: 1.0.5
       '@types/mdast':
         specifier: ^4.0.3
         version: 4.0.3
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.10.6
+      '@types/unist':
+        specifier: ^3.0.2
+        version: 3.0.2
       micromark:
         specifier: ^4.0.0
         version: 4.0.0
