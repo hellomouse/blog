@@ -19,7 +19,7 @@ import {
   Program as EstreeProgram,
 } from 'estree';
 import _estreeToBabel from 'estree-to-babel';
-import { Nodes as MdastNode } from 'mdast';
+import { BlockContent, DefinitionContent, Nodes as MdastNode, Parents, PhrasingContent } from 'mdast';
 import { MdxJsxAttribute, MdxJsxExpressionAttribute } from 'mdast-util-mdx-jsx';
 import assert from 'node:assert';
 import { Node as UnistNode, Position as UnistPosition } from 'unist';
@@ -27,6 +27,8 @@ import { AbstractNodeTransformer, AbstractTransformGenerator, AbstractTransforme
 
 export interface Context {
   current: MdastNode,
+  identifiers: Set<string>,
+  nextDisambiguationIndex: () => number,
 }
 
 // of note: MDX does not support JSXSpreadChild syntax (<a>{...stuff}</a>)
@@ -35,14 +37,24 @@ export type VisitorGenerator = AbstractTransformGenerator<MdastNode, JSXNode>;
 export type NodeVisitor = AbstractNodeTransformer<MdastNode, JSXNode, Context>;
 
 export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Context> {
+  /** Set of currently existing identifiers */
+  public identifiers: Set<string> = new Set();
+  /** The disambiguation index is appended to identifiers if they are duplicate */
+  public disambiguationIndex = 2;
+
   constructor(public visitors: Map<MdastNode['type'], NodeVisitor>) {
     super();
   }
 
   makeContext(node: MdastNode): Context {
+    let self = this;
     return {
-      current: node 
-    }
+      current: node,
+      identifiers: this.identifiers,
+      nextDisambiguationIndex() {
+        return self.disambiguationIndex++;
+      }
+    };
   }
 
   getTransform(node: MdastNode): NodeVisitor {
@@ -53,6 +65,9 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
     return visitor;
   }
 }
+
+export const CONTEXT_VAR = '_$ctx';
+export const CONTEXT_COMPONENTS = 'el';
 
 export function estreeToBabel(input: EstreeNode): BabelNode {
   // estree-to-babel expects a File
@@ -116,6 +131,16 @@ export function makeJsxName(name: string, allowMember = true): JSXIdentifier | J
   }
 }
 
+export function makeContextComponentName(name: string): JSXMemberExpression {
+  return js.jsxMemberExpression(
+    js.jsxMemberExpression(
+      js.jsxIdentifier(CONTEXT_VAR),
+      js.jsxIdentifier(CONTEXT_COMPONENTS)
+    ),
+    js.jsxIdentifier(name)
+  );
+}
+
 export function makeJsxFragment(children: JSXNode | JSXNode[]): JSXFragment {
   if (!Array.isArray(children)) {
     children = [children];
@@ -134,7 +159,7 @@ export function makeJsxFragment(children: JSXNode | JSXNode[]): JSXFragment {
  * @param children Children, or null for a self-closing tag
  * @returns Created tag
  */
-export function makeJsxTag(
+export function makeJsxElement(
   name: JSXIdentifier | JSXMemberExpression | JSXNamespacedName | string,
   attributes: (JSXAttribute | JSXSpreadAttribute)[],
   children: JSXNode | JSXNode[] | null
@@ -156,6 +181,34 @@ export function makeJsxTag(
     }
     return js.jsxElement(openingElement, closingElement, children, false);
   }
+}
+
+export function* applySimpleElement(context: Context, nodeType: Parents['type'], elementType: string): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === nodeType);
+  let out = makeJsxElement(js.jsxIdentifier(elementType), [], yield node.children);
+  copyLoc(node, out);
+  return out;
+}
+
+/** Attempt to convert a subtree to a string */
+export function contentToText(contents: PhrasingContent[]): string {
+  let out = [];
+  for (let content of contents) {
+    let stack = [content];
+    while (stack.length) {
+      let next = stack.pop()!;
+      if (next.type === 'text' || next.type === 'inlineCode') {
+        out.push(next.value);
+      } else if ('children' in next && Array.isArray(next.children)) {
+        let children = next.children;
+        for (let i = children.length - 1; i >= 0; i--) {
+          stack.push(children[i]);
+        }
+      }
+    }
+  }
+  return out.join('');
 }
 
 export function convertMdxJsxAttribute(node: MdxJsxAttribute | MdxJsxExpressionAttribute): JSXAttribute | JSXSpreadAttribute {
@@ -231,10 +284,179 @@ export function* convertJsxElement(context: Context): VisitorGenerator {
   }
 }
 
-export function* convertParagraph(context: Context): VisitorGenerator {
+export function* convertList(context: Context): VisitorGenerator {
   let node = context.current;
-  assert(node.type === 'paragraph');
-  let out = makeJsxTag('p', [], yield node.children);
+  assert(node.type === 'list');
+
+  let elementName;
+  let attributes = [];
+  if (node.ordered) {
+    elementName = js.jsxIdentifier('ol');
+    if (typeof node.start === 'number') {
+      attributes.push(js.jsxAttribute(
+        js.jsxIdentifier('start'),
+        js.jsxExpressionContainer(js.numericLiteral(node.start))
+      ));
+    }
+  } else {
+    elementName = js.jsxIdentifier('ul');
+  }
+
+  let children: JSXElement[] = [];
+  for (let listItem of node.children) {
+    let itemChildren: MdastNode[];
+    if (!node.spread) {
+      // tight lists should not generate paragraphs, see <https://spec.commonmark.org/0.30/#loose>
+      itemChildren = listItem.children.flatMap<MdastNode>(node => {
+        if (node.type === 'paragraph') {
+          return node.children;
+        } else {
+          return node;
+        }
+      });
+    } else {
+      itemChildren = listItem.children;
+    }
+    let liElement = makeJsxElement('li', [], yield itemChildren);
+    copyLoc(listItem, liElement);
+    children.push(liElement);
+  }
+
+  let out = makeJsxElement(elementName, attributes, children);
+  copyLoc(node, out);
+  return out;
+}
+
+export function* convertBlockquote(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'blockquote');
+  let jsxName = makeContextComponentName('Blockquote');
+  let out = makeJsxElement(jsxName, [], yield node.children);
+  copyLoc(node, out);
+  return out;
+}
+
+export function* convertCode(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'code');
+  let jsxName = makeContextComponentName('Code');
+  let attributes = [];
+  if (node.lang) {
+    attributes.push(js.jsxAttribute(js.jsxIdentifier('lang'), js.stringLiteral(node.lang)));
+  }
+  if (node.meta) {
+    attributes.push(js.jsxAttribute(js.jsxIdentifier('meta'), js.stringLiteral(node.meta)));
+  }
+  let content = js.jsxExpressionContainer(js.stringLiteral(node.value));
+  let out = makeJsxElement(jsxName, attributes, content);
+  copyLoc(node, out);
+  return out;
+}
+
+export function* convertHeading(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'heading');
+  let jsxName = makeContextComponentName('Heading');
+  let identifier;
+
+  if (node.identifier) {
+    if (context.identifiers.has(node.identifier)) {
+      throw new Error('duplicate heading identifier');
+    } else {
+      identifier = node.identifier;
+    }
+  } else {
+    let baseIdentifier = 'heading-' + contentToText(node.children)
+      .toLowerCase()
+      .replace(/\s+/g, '-');
+    identifier = baseIdentifier;
+
+    while (context.identifiers.has(identifier)) {
+      // disambiguate...
+      identifier = `${baseIdentifier}-${context.nextDisambiguationIndex()}`;
+    }
+  }
+
+  context.identifiers.add(identifier);
+
+  let attributes = [
+    js.jsxAttribute(
+      js.jsxIdentifier('depth'),
+      js.jsxExpressionContainer(js.numericLiteral(node.depth))
+    ),
+    js.jsxAttribute(js.jsxIdentifier('identifier'), js.stringLiteral(identifier))
+  ];
+  let out = makeJsxElement(jsxName, attributes, yield node.children);
+  copyLoc(node, out);
+  return out;
+}
+
+export function* convertInlineCode(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'inlineCode');
+  let content = js.jsxExpressionContainer(js.stringLiteral(node.value));
+  let out = makeJsxElement('code', [], content);
+  copyLoc(node, out);
+  return out;
+}
+
+export function* convertParagraph(context: Context): VisitorGenerator {
+  return yield* applySimpleElement(context, 'paragraph', 'p');
+}
+
+export function* convertEmphasis(context: Context): VisitorGenerator {
+  return yield* applySimpleElement(context, 'emphasis', 'em');
+}
+
+export function* convertStrong(context: Context): VisitorGenerator {
+  return yield* applySimpleElement(context, 'strong', 'strong');
+}
+
+export function* convertStrikethrough(context: Context): VisitorGenerator {
+  return yield* applySimpleElement(context, 'delete', 's');
+}
+
+export function* convertLink(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'link');
+  let attributes = [
+    js.jsxAttribute(js.jsxIdentifier('href'), js.stringLiteral(node.url))
+  ];
+  if (node.title) {
+    attributes.push(
+      js.jsxAttribute(js.jsxIdentifier('title'), js.stringLiteral(node.title))
+    );
+  }
+  let out = makeJsxElement('a', attributes, yield node.children);
+  copyLoc(node, out);
+  return out;
+}
+
+export function* convertImage(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'image');
+  let attributes = [
+    js.jsxAttribute(js.jsxIdentifier('src'), js.stringLiteral(node.url))
+  ];
+  if (node.title) {
+    attributes.push(
+      js.jsxAttribute(js.jsxIdentifier('title'), js.stringLiteral(node.title))
+    );
+  }
+  if (node.alt) {
+    attributes.push(
+      js.jsxAttribute(js.jsxIdentifier('alt'), js.stringLiteral(node.alt))
+    );
+  }
+  let out = makeJsxElement('img', attributes, null);
+  copyLoc(node, out);
+  return out;
+}
+
+export function* convertThematicBreak(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'thematicBreak');
+  let out = makeJsxElement('hr', [], null);
   copyLoc(node, out);
   return out;
 }
@@ -243,13 +465,21 @@ export function* convertText(context: Context): VisitorGenerator {
   let node = context.current;
   assert(node.type === 'text');
 
-  if (node.value.match(/^\s+$/)) {
-    // whitespace only, emit JSXText directly to prevent clutter
+  if (node.value.match(/^[\w\s+\-/\.,?!@#$%():;'"]*$/)) {
+    // "simple" text, emit JSXText to prevent clutter
     return js.jsxText(node.value);
   } else {
     // wrap in string literal
     return js.jsxExpressionContainer(js.stringLiteral(node.value));
   }
+}
+
+export function* convertBreak(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'break');
+  let out = makeJsxElement('br', [], null);
+  copyLoc(node, out);
+  return out;
 }
 
 export function* convertRoot(context: Context): VisitorGenerator {
@@ -258,6 +488,10 @@ export function* convertRoot(context: Context): VisitorGenerator {
   let out = makeJsxFragment(yield node.children);
   copyLoc(node, out);
   return out;
+}
+
+export function* badTree(_context: Context): VisitorGenerator {
+  throw new Error('unexpected tree node');
 }
 
 export function makeTransformer() {
@@ -269,6 +503,20 @@ export function makeTransformer() {
     mdxJsxTextElement: convertJsxElement,
     paragraph: convertParagraph,
     text: convertText,
+    blockquote: convertBlockquote,
+    list: convertList,
+    listItem: badTree, // handled by convertList
+    break: convertBreak,
+    code: convertCode,
+    inlineCode: convertInlineCode,
+    emphasis: convertEmphasis,
+    strong: convertStrong,
+    delete: convertStrikethrough,
+    heading: convertHeading,
+    link: convertLink,
+    image: convertImage,
+    thematicBreak: convertThematicBreak,
+    // TODO: definition, math, directive, footnote, table, frontmatter, the various references
   };
   return new JSXTransform(new Map(Object.entries(visitorMap) as [MdastNode['type'], NodeVisitor][]));
 }

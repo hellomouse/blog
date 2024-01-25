@@ -6,8 +6,8 @@ import babelParser from '@babel/parser';
 import js from '@babel/types';
 import generator from '@babel/generator';
 import parse, { mdxParseOptions, micromarkTestTokenize } from './build/src/parse.js';
-import * as transform from './build/src/transform.js';
-import { estreeToBabel } from './build/src/transform.js';
+import * as convert from './build/src/convert.js';
+import { estreeToBabel } from './build/src/convert.js';
 
 let jsParser = Parser.extend(acornJsx());
 
@@ -37,6 +37,11 @@ Object.assign(interact.context, {
   parseOpts: mdxParseOptions,
   top: globalThis,
   js,
-  transform,
-  tr: transform.makeTransformer(),
+  convert,
+  tr: convert.makeTransformer(),
+  transform: input => {
+    let out = generator.default(convert.makeTransformer().transformTree(parse(input)));
+    console.log(out.code);
+    return out;
+  }
 });
