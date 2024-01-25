@@ -8,6 +8,7 @@ import js, {
   JSXIdentifier,
   JSXMemberExpression,
   JSXNamespacedName,
+  JSXOpeningElement,
   JSXSpreadAttribute,
   JSXText,
   SourceLocation,
@@ -19,7 +20,7 @@ import {
   Program as EstreeProgram,
 } from 'estree';
 import _estreeToBabel from 'estree-to-babel';
-import { BlockContent, DefinitionContent, Nodes as MdastNode, Parents, PhrasingContent } from 'mdast';
+import { Definition, Nodes as MdastNode, Parents, PhrasingContent } from 'mdast';
 import { MdxJsxAttribute, MdxJsxExpressionAttribute } from 'mdast-util-mdx-jsx';
 import assert from 'node:assert';
 import { Node as UnistNode, Position as UnistPosition } from 'unist';
@@ -29,7 +30,12 @@ export interface Context {
   current: MdastNode,
   identifiers: Set<string>,
   nextDisambiguationIndex: () => number,
+  definitions: Map<string, Definition>,
+  references: Map<string, ApplyDefinition[]>,
+  addReference: (identifier: string, reference: ApplyDefinition) => void,
 }
+
+export type ApplyDefinition = (definition: Definition) => void;
 
 // of note: MDX does not support JSXSpreadChild syntax (<a>{...stuff}</a>)
 export type JSXNode = JSXText | JSXExpressionContainer | JSXElement | JSXFragment;
@@ -41,6 +47,10 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
   public identifiers: Set<string> = new Set();
   /** The disambiguation index is appended to identifiers if they are duplicate */
   public disambiguationIndex = 2;
+  /** Resource definitions */
+  public definitions: Map<string, Definition> = new Map();
+  /** Nodes referencing definitions */
+  public references: Map<string, ApplyDefinition[]> = new Map();
 
   constructor(public visitors: Map<MdastNode['type'], NodeVisitor>) {
     super();
@@ -50,9 +60,19 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
     let self = this;
     return {
       current: node,
-      identifiers: this.identifiers,
+      identifiers: self.identifiers,
       nextDisambiguationIndex() {
         return self.disambiguationIndex++;
+      },
+      definitions: self.definitions,
+      references: self.references,
+      addReference(identifier, reference) {
+        let list = self.references.get(identifier);
+        if (!list) {
+          self.references.set(identifier, [reference]);
+        } else {
+          list.push(reference);
+        }
       }
     };
   }
@@ -63,6 +83,25 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
       throw new Error('unhandled node type: ' + node.type);
     }
     return visitor;
+  }
+
+  transformTree(root: MdastNode): JSXNode {
+    let out = super.transformTree(root);
+
+    // resolve references
+    for (let [identifier, definition] of this.definitions.entries()) {
+      let matching = this.references.get(identifier);
+      if (!matching) {
+        console.error(`warning: found dangling definition ${identifier}`);
+        continue;
+      }
+
+      for (let callback of matching) {
+        callback(definition);
+      }
+    }
+  
+    return out;
   }
 }
 
@@ -359,11 +398,11 @@ export function* convertHeading(context: Context): VisitorGenerator {
   let jsxName = makeContextComponentName('Heading');
   let identifier;
 
-  if (node.identifier) {
-    if (context.identifiers.has(node.identifier)) {
-      throw new Error('duplicate heading identifier');
+  if (node.name) {
+    if (context.identifiers.has(node.name)) {
+      throw new Error('duplicate heading identifier name');
     } else {
-      identifier = node.identifier;
+      identifier = node.name;
     }
   } else {
     let baseIdentifier = 'heading-' + contentToText(node.children)
@@ -416,6 +455,18 @@ export function* convertStrikethrough(context: Context): VisitorGenerator {
   return yield* applySimpleElement(context, 'delete', 's');
 }
 
+export function* convertDefinition(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'definition');
+  if (context.definitions.has(node.identifier)) {
+    throw new Error('duplicate definition: ' + node.identifier);
+  }
+  context.definitions.set(node.identifier, node);
+
+  // no value
+  return [];
+}
+
 export function* convertLink(context: Context): VisitorGenerator {
   let node = context.current;
   assert(node.type === 'link');
@@ -450,6 +501,49 @@ export function* convertImage(context: Context): VisitorGenerator {
   }
   let out = makeJsxElement('img', attributes, null);
   copyLoc(node, out);
+  return out;
+}
+
+export function* convertLinkReference(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'linkReference');
+  let out = makeJsxElement('a', [], yield node.children);
+  copyLoc(node, out);
+  let attributes = out.openingElement.attributes;
+  context.addReference(node.identifier, definition => {
+    attributes.push(
+      js.jsxAttribute(js.jsxIdentifier('href'), js.stringLiteral(definition.url))
+    );
+    if (definition.title) {
+      attributes.push(
+        js.jsxAttribute(js.jsxIdentifier('title'), js.stringLiteral(definition.title))
+      );
+    }
+  });
+  return out;
+}
+
+export function* convertImageReference(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'imageReference');
+  let out = makeJsxElement('img', [], null);
+  copyLoc(node, out);
+  let attributes = out.openingElement.attributes;
+  if (node.alt) {
+    attributes.push(
+      js.jsxAttribute(js.jsxIdentifier('alt'), js.stringLiteral(node.alt))
+    );
+  }
+  context.addReference(node.identifier, definition => {
+    attributes.push(
+      js.jsxAttribute(js.jsxIdentifier('src'), js.stringLiteral(definition.url))
+    );
+    if (definition.title) {
+      attributes.push(
+        js.jsxAttribute(js.jsxIdentifier('title'), js.stringLiteral(definition.title))
+      );
+    }
+  });
   return out;
 }
 
@@ -516,7 +610,10 @@ export function makeTransformer() {
     link: convertLink,
     image: convertImage,
     thematicBreak: convertThematicBreak,
-    // TODO: definition, math, directive, footnote, table, frontmatter, the various references
+    definition: convertDefinition,
+    linkReference: convertLinkReference,
+    imageReference: convertImageReference,
+    // TODO: math, directive, footnote, table, frontmatter
   };
   return new JSXTransform(new Map(Object.entries(visitorMap) as [MdastNode['type'], NodeVisitor][]));
 }

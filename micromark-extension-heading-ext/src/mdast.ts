@@ -5,7 +5,7 @@ import assert from 'node:assert';
 
 declare module 'mdast' {
   interface Heading {
-    identifier?: string | null;
+    name?: string | null;
   }
 }
 
@@ -26,7 +26,7 @@ export function headingAtxExtFromMarkdown(): Extension {
       {
         type: 'heading',
         depth: null as any, // will be set later
-        identifier: null,
+        name: null,
         children: [],
       } as Heading,
       token,
@@ -43,7 +43,7 @@ export function headingAtxExtFromMarkdown(): Extension {
   function exitHeadingIdentifier(this: CompileContext, token: Token) {
     let top = this.stack[this.stack.length - 1] as Heading;
     let identifer = this.sliceSerialize(token);
-    top.identifier = identifer;
+    top.name = identifer;
   }
 
   function exitHeading(this: CompileContext, token: Token) {

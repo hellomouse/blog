@@ -2,7 +2,7 @@ export type AbstractNodeTransformer<From, To, Context> =
   (context: Context) => AbstractTransformGenerator<From, To>;
 
 export type AbstractTransformGenerator<From, To> =
-  Generator<From | From[], To | To[], To | To[]>;
+  Generator<From | From[], To | To[], To[]>;
 
 export class AbstractTransformer<From, To, Context> {
   getTransform(_node: From): AbstractNodeTransformer<From, To, Context> {
@@ -36,7 +36,14 @@ export class AbstractTransformer<From, To, Context> {
 
         // send to parent
         let top = stack[stack.length - 1];
-        resume = top.next(resume.value);
+        // ensure array
+        let ret: To[];
+        if (Array.isArray(up)) {
+          ret = up
+        } else {
+          ret = [up];
+        }
+        resume = top.next(ret);
       } else {
         // process children
         let child = resume.value;
