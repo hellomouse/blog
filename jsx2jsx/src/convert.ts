@@ -20,7 +20,7 @@ import {
   Program as EstreeProgram,
 } from 'estree';
 import _estreeToBabel from 'estree-to-babel';
-import { Definition, Nodes as MdastNode, Parents, PhrasingContent } from 'mdast';
+import { Definition, Nodes as MdastNode, Parents, PhrasingContent, TableRow } from 'mdast';
 import { MdxJsxAttribute, MdxJsxExpressionAttribute } from 'mdast-util-mdx-jsx';
 import assert from 'node:assert';
 import { Node as UnistNode, Position as UnistPosition } from 'unist';
@@ -33,6 +33,7 @@ export interface Context {
   definitions: Map<string, Definition>,
   references: Map<string, ApplyDefinition[]>,
   addReference: (identifier: string, reference: ApplyDefinition) => void,
+  handleFrontmatter: (data: string) => void,
 }
 
 export type ApplyDefinition = (definition: Definition) => void;
@@ -51,6 +52,8 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
   public definitions: Map<string, Definition> = new Map();
   /** Nodes referencing definitions */
   public references: Map<string, ApplyDefinition[]> = new Map();
+  /** Metadata preceding document */
+  public frontmatter: string | null = null;
 
   constructor(public visitors: Map<MdastNode['type'], NodeVisitor>) {
     super();
@@ -73,6 +76,9 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
         } else {
           list.push(reference);
         }
+      },
+      handleFrontmatter(data) {
+        self.frontmatter = data;
       }
     };
   }
@@ -375,6 +381,45 @@ export function* convertBlockquote(context: Context): VisitorGenerator {
   return out;
 }
 
+export function* convertTable(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'table');
+  assert(node.children.length >= 2);
+  assert(node.align, 'expected table node to have alignment information');
+  let align = node.align;
+  
+  function* processRow(rowNode: TableRow, isHeading: boolean): Generator<MdastNode | MdastNode[], JSXNode, JSXNode[]> {
+    let cells = [];
+    for (let [index, cellNode] of rowNode.children.entries()) {
+      let cellAttributes = [];
+      if (align[index]) {
+        cellAttributes.push(
+          js.jsxAttribute(js.jsxIdentifier('style'), js.stringLiteral(`text-align: ${align[index]}`))
+        );
+      }
+      let cell = makeJsxElement(isHeading ? 'th' : 'td', cellAttributes, yield cellNode.children);
+      copyLoc(cellNode, cell);
+      cells.push(cell);
+    }
+    let row = makeJsxElement('tr', [], cells);
+    copyLoc(rowNode, row);
+    return row;
+  }
+
+  let headRow = node.children[0];
+  let thead = makeJsxElement('thead', [], yield* processRow(headRow, true));
+  let bodyRows = node.children.slice(1);
+  let body: JSXNode[] = [];
+  for (let row of bodyRows) {
+    body.push(yield* processRow(row, false));
+  }
+  let tbody = makeJsxElement('tbody', [], body);
+
+  let out = makeJsxElement('table', [], [thead, tbody]);
+  copyLoc(node, out);
+  return out;
+}
+
 export function* convertCode(context: Context): VisitorGenerator {
   let node = context.current;
   assert(node.type === 'code');
@@ -386,6 +431,37 @@ export function* convertCode(context: Context): VisitorGenerator {
   if (node.meta) {
     attributes.push(js.jsxAttribute(js.jsxIdentifier('meta'), js.stringLiteral(node.meta)));
   }
+  let content = js.jsxExpressionContainer(js.stringLiteral(node.value));
+  let out = makeJsxElement(jsxName, attributes, content);
+  copyLoc(node, out);
+  return out;
+}
+
+export function* convertBlockMath(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'math');
+  let jsxName = makeContextComponentName('Math');
+  let attributes = [
+    js.jsxAttribute(js.jsxIdentifier('type'), js.stringLiteral('block'))
+  ];
+  if (node.meta) {
+    attributes.push(
+      js.jsxAttribute(js.jsxIdentifier('meta'), js.stringLiteral(node.meta))
+    );
+  }
+  let content = js.jsxExpressionContainer(js.stringLiteral(node.value));
+  let out = makeJsxElement(jsxName, attributes, content);
+  copyLoc(node, out);
+  return out;
+}
+
+export function* convertInlineMath(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'inlineMath');
+  let jsxName = makeContextComponentName('Math');
+  let attributes = [
+    js.jsxAttribute(js.jsxIdentifier('type'), js.stringLiteral('inline'))
+  ];
   let content = js.jsxExpressionContainer(js.stringLiteral(node.value));
   let out = makeJsxElement(jsxName, attributes, content);
   copyLoc(node, out);
@@ -584,6 +660,13 @@ export function* convertRoot(context: Context): VisitorGenerator {
   return out;
 }
 
+export function* convertFrontmatter(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'yaml');
+  context.handleFrontmatter(node.value);
+  return [];
+}
+
 export function* badTree(_context: Context): VisitorGenerator {
   throw new Error('unexpected tree node');
 }
@@ -613,7 +696,13 @@ export function makeTransformer() {
     definition: convertDefinition,
     linkReference: convertLinkReference,
     imageReference: convertImageReference,
-    // TODO: math, directive, footnote, table, frontmatter
+    math: convertBlockMath,
+    inlineMath: convertInlineMath,
+    table: convertTable,
+    tableRow: badTree,
+    tableCell: badTree,
+    yaml: convertFrontmatter,
+    // TODO: directives, footnotes
   };
   return new JSXTransform(new Map(Object.entries(visitorMap) as [MdastNode['type'], NodeVisitor][]));
 }
