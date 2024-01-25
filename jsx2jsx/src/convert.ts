@@ -8,14 +8,14 @@ import js, {
   JSXIdentifier,
   JSXMemberExpression,
   JSXNamespacedName,
-  JSXOpeningElement,
   JSXSpreadAttribute,
   JSXText,
   SourceLocation,
+  ExpressionStatement as BabelExpressionStatement,
+  File as BabelFile
 } from '@babel/types';
 import {
   ExpressionStatement as EstreeExpressionStatement,
-  Identifier as EstreeIdentifier,
   Node as EstreeNode,
   Program as EstreeProgram,
 } from 'estree';
@@ -139,11 +139,23 @@ export function copyLoc(from: UnistNode, to: BabelNode) {
 
 export function convertJsxExpressionBody(estree: EstreeProgram): JSXExpressionContainer {
   assert.equal(estree.type, 'Program');
-  assert.equal(estree.body.length, 1);
-  assert.equal(estree.body[0].type, 'ExpressionStatement');
-  // types don't expect expression parse mode
-  let expr = (estree.body[0] as EstreeExpressionStatement).expression;
-  return js.jsxExpressionContainer(estreeToBabel(expr) as BabelExpression);
+  let converted = (_estreeToBabel as any)(estree) as BabelFile;
+  let container;
+  if (converted.program.body.length === 1) {
+    assert.equal(converted.program.body[0].type, 'ExpressionStatement');
+    // types don't expect expression parse mode
+    let expr = (converted.program.body[0] as BabelExpressionStatement).expression;
+    container = js.jsxExpressionContainer(expr);
+  } else if (estree.comments?.length) {
+    container = js.jsxExpressionContainer(js.jsxEmptyExpression());
+  } else {
+    throw new Error('unexpected JSX empty block');
+  }
+  if (converted.comments?.length) {
+    // relocate comments
+    container.expression.leadingComments = converted.comments;
+  }
+  return container;
 }
 
 /** Create one of the JSX name nodes from a string name */
