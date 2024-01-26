@@ -2,7 +2,7 @@ export type AbstractNodeTransformer<From, To, Context> =
   (context: Context) => AbstractTransformGenerator<From, To>;
 
 export type AbstractTransformGenerator<From, To> =
-  Generator<From | From[], To | To[], To[]>;
+  Generator<From[], To | To[], To[]>;
 
 export class AbstractTransformer<From, To, Context> {
   getTransform(_node: From): AbstractNodeTransformer<From, To, Context> {
@@ -47,15 +47,18 @@ export class AbstractTransformer<From, To, Context> {
       } else {
         // process children
         let child = resume.value;
-        if (Array.isArray(child)) {
-          // push adapter
-          let gen = flatMapGenerator(child) as AbstractTransformGenerator<From, To>;
+        if (child.length === 0) {
+          // no children
+          resume = { done: true, value: [] };
+        } else if (child.length === 1) {
+          let genFn = this.getTransform(child[0]);
+          let context = this.makeContext(child[0]);
+          let gen = genFn(context);
           resume = gen.next();
           stack.push(gen);
         } else {
-          let genFn = this.getTransform(child);
-          let context = this.makeContext(child);
-          let gen = genFn(context);
+          // push adapter
+          let gen = flatMapGenerator(child) as AbstractTransformGenerator<From, To>;
           resume = gen.next();
           stack.push(gen);
         }
@@ -69,15 +72,11 @@ export class AbstractTransformer<From, To, Context> {
  * `next()` into the output array. If an array is passed to `next()`, merge its
  * contents into the output array. Return the output array when complete.
  */
-export function* flatMapGenerator<T, U>(input: T[]): Generator<T, U[], U | U[]> {
+export function* flatMapGenerator<T, U>(input: T[]): Generator<T[], U[], U[]> {
   let output = [];
   for (let val of input) {
-    let next = yield val;
-    if (Array.isArray(next)) {
-      output.push(...next)
-    } else {
-      output.push(next);
-    }
+    let next = yield [val];
+    output.push(...next);
   }
   return output;
 }
