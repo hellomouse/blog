@@ -65,6 +65,18 @@ export type JSXNode = JSXText | JSXExpressionContainer | JSXElement | JSXFragmen
 export type VisitorGenerator = AbstractTransformGenerator<MdastNode, JSXNode>;
 export type NodeVisitor = AbstractNodeTransformer<MdastNode, JSXNode, Context>;
 
+export type NonContainerDirectiveProcessor = (
+  type: 'text' | 'leaf',
+  attributes: Record<string, string>,
+  children: PhrasingContent[]
+) => VisitorGenerator;
+
+export type ContainerDirectiveProcessor = (
+  attributes: Record<string, string>,
+  label: PhrasingContent[],
+  children: any[],
+) => VisitorGenerator;
+
 export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Context> {
   /** Set of currently existing identifiers */
   public identifiers!: Set<string>;
@@ -93,7 +105,10 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
   /** If transform should call reset */
   public _needsReset!: boolean;
 
-  constructor(public visitors: Map<MdastNode['type'], NodeVisitor>) {
+  constructor(
+    /** Registered visitors */
+    public visitors: Map<MdastNode['type'], NodeVisitor>,
+  ) {
     super();
     this.reset();
   }
@@ -844,44 +859,71 @@ export function* convertFrontmatter(context: Context): VisitorGenerator {
   return [];
 }
 
-export function* badTree(_context: Context): VisitorGenerator {
-  throw new Error('unexpected tree node');
+export function* convertTextDirective(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'textDirective');
+  node
+  throw new Error('unimplemented');
 }
 
-export function makeTransformer() {
-  let visitorMap: Partial<Record<MdastNode['type'], NodeVisitor>> = {
-    root: convertRoot,
-    mdxFlowExpression: convertMdxExpression,
-    mdxTextExpression: convertMdxExpression,
-    mdxJsxFlowElement: convertJsxElement,
-    mdxJsxTextElement: convertJsxElement,
-    paragraph: convertParagraph,
-    text: convertText,
-    blockquote: convertBlockquote,
-    list: convertList,
-    listItem: badTree, // handled by convertList
-    break: convertBreak,
-    code: convertCode,
-    inlineCode: convertInlineCode,
-    emphasis: convertEmphasis,
-    strong: convertStrong,
-    delete: convertStrikethrough,
-    heading: convertHeading,
-    link: convertLink,
-    image: convertImage,
-    thematicBreak: convertThematicBreak,
-    definition: convertDefinition,
-    linkReference: convertLinkReference,
-    imageReference: convertImageReference,
-    math: convertBlockMath,
-    inlineMath: convertInlineMath,
-    table: convertTable,
-    tableRow: badTree,
-    tableCell: badTree,
-    yaml: convertFrontmatter,
-    footnoteDefinition: convertFootnoteDefinition,
-    footnoteReference: convertFootnoteReference,
-    // TODO: directives
-  };
-  return new JSXTransform(new Map(Object.entries(visitorMap) as [MdastNode['type'], NodeVisitor][]));
+export function* convertLeafDirective(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'leafDirective');
+  node
+  throw new Error('unimplemented');
 }
+
+export function* convertContainerDirective(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'containerDirective');
+  node
+  throw new Error('unimplemented');
+}
+
+// TODO: send directive to JSX
+
+export function* badTree(context: Context): VisitorGenerator {
+  throw new Error(`unexpected node "${context.current.type}`);
+}
+
+let visitorMap: Partial<Record<MdastNode['type'], NodeVisitor>> = {
+  root: convertRoot,
+  mdxFlowExpression: convertMdxExpression,
+  mdxTextExpression: convertMdxExpression,
+  mdxJsxFlowElement: convertJsxElement,
+  mdxJsxTextElement: convertJsxElement,
+  paragraph: convertParagraph,
+  text: convertText,
+  blockquote: convertBlockquote,
+  list: convertList,
+  listItem: badTree, // handled by convertList
+  break: convertBreak,
+  code: convertCode,
+  inlineCode: convertInlineCode,
+  emphasis: convertEmphasis,
+  strong: convertStrong,
+  delete: convertStrikethrough,
+  heading: convertHeading,
+  link: convertLink,
+  image: convertImage,
+  thematicBreak: convertThematicBreak,
+  definition: convertDefinition,
+  linkReference: convertLinkReference,
+  imageReference: convertImageReference,
+  math: convertBlockMath,
+  inlineMath: convertInlineMath,
+  table: convertTable,
+  tableRow: badTree,
+  tableCell: badTree,
+  yaml: convertFrontmatter,
+  footnoteDefinition: convertFootnoteDefinition,
+  footnoteReference: convertFootnoteReference,
+  textDirective: convertTextDirective,
+  leafDirective: convertLeafDirective,
+  containerDirective: convertContainerDirective,
+  html: badTree,
+  // TODO: import/export
+  // TODO: handle destructuring (ObjectPattern, ArrayPattern) in export
+};
+
+export const visitors = new Map(Object.entries(visitorMap) as [MdastNode['type'], NodeVisitor][]);

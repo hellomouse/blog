@@ -22,6 +22,9 @@ let interact = repl.start({
     return util.inspect(obj, inspectOpts);
   }
 });
+function makeTransformer() {
+  return new convert.JSXTransform(convert.visitors);
+}
 Object.assign(interact.context, {
   // out,
   parse,
@@ -39,9 +42,9 @@ Object.assign(interact.context, {
   top: globalThis,
   js,
   convert,
-  tr: convert.makeTransformer(),
+  tr: makeTransformer(),
   transform: input => {
-    let transformer = convert.makeTransformer();
+    let transformer = makeTransformer();
     let out = generator.default(transformer.transformTree(parse(input)));
     console.log(out.code);
     return transformer;
