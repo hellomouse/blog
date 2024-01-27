@@ -12,7 +12,8 @@ import js, {
   JSXText,
   SourceLocation,
   ExpressionStatement as BabelExpressionStatement,
-  File as BabelFile
+  File as BabelFile,
+  ArrowFunctionExpression
 } from '@babel/types';
 import {
   ExpressionStatement as EstreeExpressionStatement,
@@ -36,6 +37,10 @@ export interface Context {
   handleFrontmatter: (data: string) => void,
   headingStack: HeadingInfo[][],
   headingCounters: number[],
+  headingComponents: Record<string, ArrowFunctionExpression>,
+  nextFootnoteIndex: () => number,
+  footnoteComponents: Record<string, [number, ArrowFunctionExpression]>,
+  footnoteIndexes: Map<string, number>,
 }
 
 export type ApplyDefinition = (definition: Definition) => void;
@@ -62,24 +67,51 @@ export type NodeVisitor = AbstractNodeTransformer<MdastNode, JSXNode, Context>;
 
 export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Context> {
   /** Set of currently existing identifiers */
-  public identifiers: Set<string> = new Set();
+  public identifiers!: Set<string>;
   /** The disambiguation index is appended to identifiers if they are duplicate */
-  public disambiguationIndex = 2;
+  public _disambiguationIndex!: number;
   /** Resource definitions */
-  public definitions: Map<string, Definition> = new Map();
+  public _definitions!: Map<string, Definition>;
   /** Nodes referencing definitions */
-  public references: Map<string, ApplyDefinition[]> = new Map();
+  public _references!: Map<string, ApplyDefinition[]>;
   /** Metadata preceding document */
-  public frontmatter: string | null = null;
-  /** Heading metadata */
-  public headings: HeadingInfo[] = [];
-  /** The heading stack(TM) */
-  public headingStack: HeadingInfo[][] = [];
+  public frontmatter!: string | null;
+  /** Heading components */
+  public headingComponents!: Record<string, ArrowFunctionExpression>;
+  /** Heading stack (not to be confused with the heading tree) */
+  public _headingStack!: HeadingInfo[][];
   /** Heading counters stack */
-  public headingCounters: number[] = [];
+  public _headingCounters!: number[];
+  /** Heading tree */
+  public headingTree!: HeadingInfo[];
+  /** Footnote components: [index, component] */
+  public footnoteComponents!: Record<string, [number, ArrowFunctionExpression]>;
+  /** Footnote identifier to index */
+  public _footnoteIndexes!: Map<string, number>;
+  /** Current footnote index */
+  public _footnoteCounter!: number;
+  /** If transform should call reset */
+  public _needsReset!: boolean;
 
   constructor(public visitors: Map<MdastNode['type'], NodeVisitor>) {
     super();
+    this.reset();
+  }
+
+  reset() {
+    this.identifiers = new Set();
+    this._disambiguationIndex = 2;
+    this._definitions = new Map();
+    this._references = new Map();
+    this.frontmatter = null;
+    this.headingComponents = {};
+    this._headingStack = [];
+    this._headingCounters = [];
+    this.headingTree = [];
+    this.footnoteComponents = {};
+    this._footnoteIndexes = new Map();
+    this._footnoteCounter = 1;
+    this._needsReset = false;
   }
 
   makeContext(node: MdastNode): Context {
@@ -88,14 +120,14 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
       current: node,
       identifiers: self.identifiers,
       nextDisambiguationIndex() {
-        return self.disambiguationIndex++;
+        return self._disambiguationIndex++;
       },
-      definitions: self.definitions,
-      references: self.references,
+      definitions: self._definitions,
+      references: self._references,
       addReference(identifier, reference) {
-        let list = self.references.get(identifier);
+        let list = self._references.get(identifier);
         if (!list) {
-          self.references.set(identifier, [reference]);
+          self._references.set(identifier, [reference]);
         } else {
           list.push(reference);
         }
@@ -103,8 +135,14 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
       handleFrontmatter(data) {
         self.frontmatter = data;
       },
-      headingStack: self.headingStack,
-      headingCounters: self.headingCounters,
+      headingStack: self._headingStack,
+      headingCounters: self._headingCounters,
+      headingComponents: self.headingComponents,
+      nextFootnoteIndex() {
+        return self._footnoteCounter++;
+      },
+      footnoteComponents: self.footnoteComponents,
+      footnoteIndexes: self._footnoteIndexes,
     };
   }
 
@@ -117,24 +155,15 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
     return visitor;
   }
 
-  reset() {
-    this.frontmatter = null;
-    this.headingStack = [];
-    this.headingCounters = [];
-    this.identifiers.clear();
-    this.definitions.clear();
-    this.references.clear();
-    this.disambiguationIndex = 2;
-  }
-
   transformTree(root: MdastNode): JSXNode {
-    this.reset();
+    if (this._needsReset) this.reset();
+    this._needsReset = true;
 
     let out = super.transformTree(root);
 
     // resolve references
-    for (let [identifier, definition] of this.definitions.entries()) {
-      let matching = this.references.get(identifier);
+    for (let [identifier, definition] of this._definitions.entries()) {
+      let matching = this._references.get(identifier);
       if (!matching) {
         console.error(`warning: found dangling definition ${identifier}`);
         continue;
@@ -146,14 +175,19 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
     }
 
     // flush heading stack
-    while (this.headingStack.length > 1) {
-      let previous = this.headingStack.pop()!;
-      let top = this.headingStack[this.headingStack.length - 1];
+    while (this._headingStack.length > 1) {
+      let previous = this._headingStack.pop()!;
+      let top = this._headingStack[this._headingStack.length - 1];
       let last = top[top.length - 1];
       last.children = previous;
     }
 
-    this.headings = this.headingStack[0];
+    this.headingTree = this._headingStack[0] ?? [];
+
+    // resolve footnote indexes
+    for (let [key, index] of this._footnoteIndexes) {
+      this.footnoteComponents[key][0] = index;
+    }
   
     return out;
   }
@@ -532,11 +566,11 @@ export function* convertHeading(context: Context): VisitorGenerator {
   let node = context.current;
   assert(node.type === 'heading');
   let jsxName = makeContextComponentName('Heading');
-  let identifier;
+  let identifier: string;
 
   if (node.name) {
     if (context.identifiers.has(node.name)) {
-      throw new Error('duplicate heading identifier name');
+      throw new Error('duplicate heading identifier name: ' + node.name);
     } else {
       identifier = node.name;
     }
@@ -582,6 +616,9 @@ export function* convertHeading(context: Context): VisitorGenerator {
     top.push({ identifier, counters: counters.slice() });
   }
 
+  let component = js.arrowFunctionExpression([], makeJsxFragment(yield node.children));
+  context.headingComponents[identifier] = component;
+
   let attributes = [
     js.jsxAttribute(
       js.jsxIdentifier('depth'),
@@ -589,7 +626,7 @@ export function* convertHeading(context: Context): VisitorGenerator {
     ),
     js.jsxAttribute(js.jsxIdentifier('identifier'), js.stringLiteral(identifier))
   ];
-  let out = makeJsxElement(jsxName, attributes, yield node.children);
+  let out = makeJsxElement(jsxName, attributes, null);
   copyLoc(node, out);
   return out;
 }
@@ -711,6 +748,58 @@ export function* convertImageReference(context: Context): VisitorGenerator {
   return out;
 }
 
+export function* convertFootnoteDefinition(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'footnoteDefinition');
+  
+  let identifier = node.identifier;
+  if (identifier in context.footnoteComponents) {
+    throw new Error('duplicate footnote identifier: ' + identifier);
+  }
+  let defId = `footnote-def-${identifier}`;
+  let refId = `footnote-ref-${identifier}`;
+  if (context.identifiers.has(defId)) {
+    throw new Error('footnote identifier collides: ' + defId);
+  }
+  if (context.identifiers.has(refId)) {
+    throw new Error('footnote identifier collides: ' + refId);
+  }
+  context.identifiers.add(defId);
+  context.identifiers.add(refId);
+
+  let component = js.arrowFunctionExpression([], makeJsxFragment(yield node.children));
+  copyLoc(node, component);
+  // index resolved later
+  context.footnoteComponents[identifier] = [-1, component];
+
+  return [];
+}
+
+export function* convertFootnoteReference(context: Context): VisitorGenerator {
+  let node = context.current;
+  assert(node.type === 'footnoteReference');
+
+  let identifier = node.identifier;
+  let index = context.footnoteIndexes.get(identifier);
+  // indexes can't be 0 because they start at 1
+  if (!index) {
+    index = context.nextFootnoteIndex();
+    context.footnoteIndexes.set(identifier, index);
+  }
+
+  let jsxName = makeContextComponentName('Footnote');
+  let attributes = [
+    js.jsxAttribute(js.jsxIdentifier('identifier'), js.stringLiteral(identifier)),
+    js.jsxAttribute(
+      js.jsxIdentifier('index'),
+      js.jsxExpressionContainer(js.numericLiteral(index))
+    )
+  ];
+  let out = makeJsxElement(jsxName, attributes, null);
+  copyLoc(node, out);
+  return out;
+}
+
 export function* convertThematicBreak(context: Context): VisitorGenerator {
   let node = context.current;
   assert(node.type === 'thematicBreak');
@@ -790,7 +879,9 @@ export function makeTransformer() {
     tableRow: badTree,
     tableCell: badTree,
     yaml: convertFrontmatter,
-    // TODO: directives, footnotes
+    footnoteDefinition: convertFootnoteDefinition,
+    footnoteReference: convertFootnoteReference,
+    // TODO: directives
   };
   return new JSXTransform(new Map(Object.entries(visitorMap) as [MdastNode['type'], NodeVisitor][]));
 }

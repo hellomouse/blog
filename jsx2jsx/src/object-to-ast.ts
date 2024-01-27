@@ -2,6 +2,8 @@ import js, { Expression, ObjectProperty, isValidIdentifier } from '@babel/types'
 import { AbstractNodeTransformer, AbstractTransformer } from './tree-transformer.js';
 import assert from 'node:assert';
 
+export const IS_AST = Symbol('IS_AST');
+
 export class ObjectToAST extends AbstractTransformer<any, Expression, any> {
   makeContext(value: any): any {
     return value;
@@ -12,8 +14,13 @@ export class ObjectToAST extends AbstractTransformer<any, Expression, any> {
       case 'object': {
         if (Array.isArray(node)) {
           return function* convertArray(value) {
-            let children = yield value;
-            return js.arrayExpression(children);
+            if (node.length === 2 && Object.is(node[0], IS_AST)) {
+              // handle raw AST
+              return value[1];
+            } else {
+              let children = yield value;
+              return js.arrayExpression(children);
+            }
           }
         } else if (Object.is(node, null)) {
           return function* convertNull() {
@@ -83,7 +90,7 @@ export class ObjectToAST extends AbstractTransformer<any, Expression, any> {
   }
 }
 
-export default function objectToAst(value: any): Expression {
+export default function objectToAST(value: any): Expression {
   let transform = new ObjectToAST();
   return transform.transformTree(value);
 }
