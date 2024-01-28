@@ -9,6 +9,7 @@ import parse, { mdxParseOptions, micromarkTestTokenize } from './build/src/parse
 import * as convert from './build/src/convert.js';
 import { estreeToBabel } from './build/src/convert.js';
 import objectToAST, { IS_AST } from './build/src/object-to-ast.js';
+import { nonContainerDirectives, containerDirectives } from './build/src/directives.js';
 
 let jsParser = Parser.extend(acornJsx());
 
@@ -23,7 +24,7 @@ let interact = repl.start({
   }
 });
 function makeTransformer() {
-  return new convert.JSXTransform(convert.visitors);
+  return new convert.JSXTransform(convert.visitors, nonContainerDirectives, containerDirectives);
 }
 Object.assign(interact.context, {
   // out,
@@ -46,7 +47,11 @@ Object.assign(interact.context, {
   transform: input => {
     let transformer = makeTransformer();
     let out = generator.default(transformer.transformTree(parse(input)));
-    console.log(out.code);
+    interact.pause
+    queueMicrotask(() => {
+      console.log(out.code);
+      interact.prompt();
+    });
     return transformer;
   },
   objectToAST,

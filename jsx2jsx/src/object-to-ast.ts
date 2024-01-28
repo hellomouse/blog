@@ -90,6 +90,10 @@ export class ObjectToAST extends AbstractTransformer<any, Expression, any> {
   }
 }
 
+export function astNode(node: Expression): [symbol, Expression] {
+  return [IS_AST, node];
+}
+
 export default function objectToAST(value: any): Expression {
   let transform = new ObjectToAST();
   return transform.transformTree(value);
