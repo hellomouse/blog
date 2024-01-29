@@ -1,9 +1,13 @@
 import js, {
+  ArrayPattern,
   ArrowFunctionExpression,
+  AssignmentPattern,
   Expression as BabelExpression,
   ExpressionStatement as BabelExpressionStatement,
   File as BabelFile,
   Node as BabelNode,
+  Declaration,
+  Identifier,
   ImportDeclaration,
   JSXAttribute,
   JSXElement,
@@ -14,9 +18,11 @@ import js, {
   JSXNamespacedName,
   JSXSpreadAttribute,
   JSXText,
+  ObjectPattern,
   ObjectProperty,
   Program,
-  SourceLocation
+  RestElement,
+  SourceLocation,
 } from '@babel/types';
 import {
   ExpressionStatement as EstreeExpressionStatement,
@@ -26,7 +32,7 @@ import {
 import _estreeToBabel from 'estree-to-babel';
 import { BlockContent, Definition, DefinitionContent, Nodes as MdastNode, Parents, PhrasingContent, TableRow } from 'mdast';
 import { MdxJsxAttribute, MdxJsxExpressionAttribute } from 'mdast-util-mdx-jsx';
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { Position as UnistPosition } from 'unist';
 import { AbstractNodeTransformer, AbstractTransformGenerator, AbstractTransformer } from './tree-transformer.js';
 
@@ -48,6 +54,7 @@ export interface Context {
   containerDirectiveHandlers: Map<string, ContainerDirectiveProcessor>;
   imports: ImportDeclaration[];
   exports: ObjectProperty[];
+  exportDeclarations: Declaration[];
 }
 
 export type ApplyDefinition = (definition: Definition) => void;
@@ -113,8 +120,10 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
   public _footnoteCounter!: number;
   /** Import declarations */
   public imports!: ImportDeclaration[];
-  /** Exported identifiers */
+  /** Exported values */
   public exports!: ObjectProperty[];
+  /** Export declarations */
+  public exportDeclarations!: Declaration[];
   /** If transform should call reset */
   public _needsReset!: boolean;
 
@@ -145,6 +154,7 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
     this._footnoteCounter = 1;
     this.imports = [];
     this.exports = [];
+    this.exportDeclarations = [];
     this._needsReset = false;
   }
 
@@ -182,6 +192,7 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
       containerDirectiveHandlers: self.containerDirectiveHandlers,
       imports: self.imports,
       exports: self.exports,
+      exportDeclarations: self.exportDeclarations,
     };
   }
 
@@ -245,13 +256,12 @@ export function estreeToBabel(input: EstreeNode): BabelNode {
 }
 
 export function convertLocation(position: UnistPosition): SourceLocation {
-  /* note: might not be necessary, doesn't look like babel uses the absolute offset
+  // offset -> position
+  // columns are zero-indexed in babel but one-indexed in mdast
   return {
-    start: { line: position.start.line, column: position.start.column, index: position.start.offset! },
-    end: { line: position.end.line, column: position.end.column, index: position.end.offset! },
+    start: { line: position.start.line, column: position.start.column - 1, index: position.start.offset! },
+    end: { line: position.end.line, column: position.end.column - 1, index: position.end.offset! },
   } as SourceLocation;
-  */
- return position as SourceLocation;
 }
 
 export function copyLoc(from: { position?: UnistPosition | null }, to: { loc?: SourceLocation | null }) {
@@ -259,11 +269,12 @@ export function copyLoc(from: { position?: UnistPosition | null }, to: { loc?: S
 }
 
 export function convertJsxExpressionBody(estree: EstreeProgram): JSXExpressionContainer {
-  assert.equal(estree.type, 'Program');
+  assert(estree.type === 'Program');
+  // need this to preserve comments
   let converted = (_estreeToBabel as any)(estree) as BabelFile;
   let container;
   if (converted.program.body.length === 1) {
-    assert.equal(converted.program.body[0].type, 'ExpressionStatement');
+    assert(converted.program.body[0].type === 'ExpressionStatement');
     // types don't expect expression parse mode
     let expr = (converted.program.body[0] as BabelExpressionStatement).expression;
     container = js.jsxExpressionContainer(expr);
@@ -299,7 +310,7 @@ export function makeJsxName(name: string, allowMember = true): JSXIdentifier | J
     return obj;
   } else if (name.includes(':')) {
     let components = name.split(':');
-    assert.equal(components.length, 2);
+    assert(components.length === 2);
     return js.jsxNamespacedName(
       js.jsxIdentifier(components[0]),
       js.jsxIdentifier(components[1]),
@@ -366,7 +377,7 @@ export function* applySimpleElement(context: Context, nodeType: Parents['type'],
   assert(node.type === nodeType);
   let out = makeJsxElement(js.jsxIdentifier(elementType), [], yield node.children);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 /** Attempt to convert a subtree to a string */
@@ -428,7 +439,7 @@ export function* convertMdxExpression(context: Context): VisitorGenerator {
   assert(node.type === 'mdxFlowExpression' || node.type === 'mdxTextExpression');
   let out = convertJsxExpressionBody(node.data!.estree!);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertJsxElement(context: Context): VisitorGenerator {
@@ -439,7 +450,7 @@ export function* convertJsxElement(context: Context): VisitorGenerator {
     // handle fragment
     let fragment = makeJsxFragment(yield node.children);
     copyLoc(node, fragment);
-    return fragment;
+    return [fragment];
   }
 
   let jsxName = makeJsxName(node.name);
@@ -451,14 +462,14 @@ export function* convertJsxElement(context: Context): VisitorGenerator {
   if (selfClosing) {
     let out = js.jsxElement(openingElement, null, [], true);
     copyLoc(node, out);
-    return out;
+    return [out];
   } else {
     let closingElement = js.jsxClosingElement(jsxName);
     let children = yield node.children;
     assert(Array.isArray(children));
     let out = js.jsxElement(openingElement, closingElement, children, false);
     copyLoc(node, out);
-    return out;
+    return [out];
   }
 }
 
@@ -502,7 +513,7 @@ export function* convertList(context: Context): VisitorGenerator {
 
   let out = makeJsxElement(elementName, attributes, children);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertBlockquote(context: Context): VisitorGenerator {
@@ -511,7 +522,7 @@ export function* convertBlockquote(context: Context): VisitorGenerator {
   let jsxName = makeContextComponentName('Blockquote');
   let out = makeJsxElement(jsxName, [], yield node.children);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertTable(context: Context): VisitorGenerator {
@@ -550,7 +561,7 @@ export function* convertTable(context: Context): VisitorGenerator {
 
   let out = makeJsxElement('table', [], [thead, tbody]);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertCode(context: Context): VisitorGenerator {
@@ -567,7 +578,7 @@ export function* convertCode(context: Context): VisitorGenerator {
   let content = js.jsxExpressionContainer(js.stringLiteral(node.value));
   let out = makeJsxElement(jsxName, attributes, content);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertBlockMath(context: Context): VisitorGenerator {
@@ -585,7 +596,7 @@ export function* convertBlockMath(context: Context): VisitorGenerator {
   let content = js.jsxExpressionContainer(js.stringLiteral(node.value));
   let out = makeJsxElement(jsxName, attributes, content);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertInlineMath(context: Context): VisitorGenerator {
@@ -598,7 +609,7 @@ export function* convertInlineMath(context: Context): VisitorGenerator {
   let content = js.jsxExpressionContainer(js.stringLiteral(node.value));
   let out = makeJsxElement(jsxName, attributes, content);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertHeading(context: Context): VisitorGenerator {
@@ -616,7 +627,8 @@ export function* convertHeading(context: Context): VisitorGenerator {
   } else {
     let baseIdentifier = 'heading-' + contentToText(node.children)
       .toLowerCase()
-      .replace(/\s+/g, '-');
+      .replace(/\s+/g, '-')
+      .replace(/[^\w\-_]/g, '');
     identifier = baseIdentifier;
 
     while (context.identifiers.has(identifier)) {
@@ -667,7 +679,7 @@ export function* convertHeading(context: Context): VisitorGenerator {
   ];
   let out = makeJsxElement(jsxName, attributes, null);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertInlineCode(context: Context): VisitorGenerator {
@@ -676,7 +688,7 @@ export function* convertInlineCode(context: Context): VisitorGenerator {
   let content = js.jsxExpressionContainer(js.stringLiteral(node.value));
   let out = makeJsxElement('code', [], content);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertParagraph(context: Context): VisitorGenerator {
@@ -720,7 +732,7 @@ export function* convertLink(context: Context): VisitorGenerator {
   }
   let out = makeJsxElement('a', attributes, yield node.children);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertImage(context: Context): VisitorGenerator {
@@ -741,7 +753,7 @@ export function* convertImage(context: Context): VisitorGenerator {
   }
   let out = makeJsxElement('img', attributes, null);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertLinkReference(context: Context): VisitorGenerator {
@@ -760,7 +772,7 @@ export function* convertLinkReference(context: Context): VisitorGenerator {
       );
     }
   });
-  return out;
+  return [out];
 }
 
 export function* convertImageReference(context: Context): VisitorGenerator {
@@ -784,7 +796,7 @@ export function* convertImageReference(context: Context): VisitorGenerator {
       );
     }
   });
-  return out;
+  return [out];
 }
 
 export function* convertFootnoteDefinition(context: Context): VisitorGenerator {
@@ -836,7 +848,7 @@ export function* convertFootnoteReference(context: Context): VisitorGenerator {
   ];
   let out = makeJsxElement(jsxName, attributes, null);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertThematicBreak(context: Context): VisitorGenerator {
@@ -844,7 +856,7 @@ export function* convertThematicBreak(context: Context): VisitorGenerator {
   assert(node.type === 'thematicBreak');
   let out = makeJsxElement('hr', [], null);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertText(context: Context): VisitorGenerator {
@@ -853,10 +865,10 @@ export function* convertText(context: Context): VisitorGenerator {
 
   if (node.value.match(/^[\w\s+\-/\.,?!@#$%():;'"]*$/)) {
     // "simple" text, emit JSXText to prevent clutter
-    return js.jsxText(node.value);
+    return [js.jsxText(node.value)];
   } else {
     // wrap in string literal
-    return js.jsxExpressionContainer(js.stringLiteral(node.value));
+    return [js.jsxExpressionContainer(js.stringLiteral(node.value))];
   }
 }
 
@@ -865,7 +877,7 @@ export function* convertBreak(context: Context): VisitorGenerator {
   assert(node.type === 'break');
   let out = makeJsxElement('br', [], null);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertRoot(context: Context): VisitorGenerator {
@@ -873,7 +885,7 @@ export function* convertRoot(context: Context): VisitorGenerator {
   assert(node.type === 'root');
   let out = makeJsxFragment(yield node.children);
   copyLoc(node, out);
-  return out;
+  return [out];
 }
 
 export function* convertFrontmatter(context: Context): VisitorGenerator {
@@ -955,9 +967,83 @@ export function* convertContainerDirective(context: Context): VisitorGenerator {
   });
 }
 
+export type DestructureNodes = ObjectPattern | ArrayPattern | AssignmentPattern | RestElement | Identifier;
+
+/** Class that turns a destructure pattern into a list of identifiers */
+export class Antidestructurer extends AbstractTransformer<DestructureNodes, null, DestructureNodes> {
+  public identifiers: Identifier[] = [];
+
+  makeContext(node: DestructureNodes): DestructureNodes {
+    return node;
+  }
+
+  getTransform({ type }: DestructureNodes): AbstractNodeTransformer<DestructureNodes, null, DestructureNodes> {
+    let self = this;
+    switch (type) {
+      case 'ObjectPattern': {
+        // let { a, b: c } = value
+        return function* convertObjectPattern(node) {
+          node = node as ObjectPattern;
+          for (let prop of node.properties) {
+            let child;
+            if (prop.type === 'RestElement') {
+              child = yield [prop];
+            } else if (prop.type === 'ObjectProperty') {
+              child = yield [prop.value as DestructureNodes];
+            } else {
+              throw new Error('unreachable');
+            }
+          }
+          return [null];
+        }
+      }
+      case 'ArrayPattern': {
+        // let [a, b] = value
+        return function* convertArrayPattern(node) {
+          node = node as ArrayPattern;
+          for (let value of node.elements) {
+            if (!value) continue;
+            yield [value as DestructureNodes];
+          }
+          return [null];
+        }
+      }
+      case 'RestElement': {
+        // let [a, b, ...c] = value
+        return function* convertRestElement(node) {
+          node = node as RestElement;
+          yield [node.argument as DestructureNodes];
+          return [null];
+        }
+      }
+      case 'AssignmentPattern': {
+        // let [a = 4] = value
+        return function* convertAssignmentPattern(node) {
+          node = node as AssignmentPattern;
+          yield [node.left as DestructureNodes];
+          return [null];
+        }
+      }
+      case 'Identifier': {
+        return function* convertIdentifier(node) {
+          self.identifiers.push(node as Identifier);
+          return [null];
+        }
+      }
+      default: {
+        throw new Error(`unexpected node ${type} in destructuring`);
+      }
+    }
+  }
+}
+
+export function destructureToIdentifiers(node: DestructureNodes): Identifier[] {
+  let transform = new Antidestructurer();
+  transform.transformTree(node);
+  return transform.identifiers;
+}
+
 export function* convertMdxjsEsm(context: Context): VisitorGenerator {
-  // TODO: handle destructuring (ObjectPattern, ArrayPattern) in export
-  // ban "export { thing } from 'module'" aka "ExportSpecifier" with source
   let node = context.current;
   assert(node.type === 'mdxjsEsm');
   assert(node.data?.estree);
@@ -971,17 +1057,23 @@ export function* convertMdxjsEsm(context: Context): VisitorGenerator {
         break;
       }
       case 'ExportDefaultDeclaration': {
+        let identDefault = js.identifier('default');
         if (js.isDeclaration(stmt.declaration)) {
           // export default function something() {}
           // export default class Something {}
           let decl = stmt.declaration;
-          if (!decl.id) {
-            throw new Error('declaration missing id?');
-          }
+          assert(decl.type !== 'TSDeclareFunction');
+          assert(decl.id, 'declaration missing id?');
 
-          
+          context.exportDeclarations.push(decl);
+          let property = js.objectProperty(identDefault, js.identifier(decl.id.name));
+          property.loc = stmt.loc;
+          context.exports.push(property);
         } else {
           // export default expr
+          let property = js.objectProperty(identDefault, stmt.declaration);
+          property.loc = stmt.loc;
+          context.exports.push(property);
         }
         break;
       }
@@ -996,9 +1088,38 @@ export function* convertMdxjsEsm(context: Context): VisitorGenerator {
           // export let name1 = expr1, name2 = expr2
           // export function doSomething() {}
           // export class Something {}
-          assert(stmt.specifiers.length === 0);
+          assert(stmt.specifiers.length === 0, 'unexpected specifiers in export');
+          let decl = stmt.declaration;
+          
+          if (decl.type === 'ClassDeclaration' || decl.type === 'FunctionDeclaration') {
+            assert(decl.id, 'declaration missing id?');
+            context.exportDeclarations.push(decl);
+            let property = js.objectProperty(decl.id, decl.id, false, true);
+            property.loc = stmt.loc;
+            context.exports.push(property);
+          } else if (decl.type === 'VariableDeclaration') {
+            // bind exports
+            for (let declarator of decl.declarations) {
+              for (let identifier of destructureToIdentifiers(declarator.id as DestructureNodes)) {
+                let property = js.objectProperty(identifier, identifier, false, true);
+                property.loc = declarator.loc;
+                context.exports.push(property);
+              }
+            }
+            context.exportDeclarations.push(decl);           
+          } else {
+            throw new Error(`unexpected declaration ${decl.type} in ${stmt.type}`);
+          }
         } else if (stmt.specifiers.length > 0) { 
-
+          // export { a, b, c as d }
+          // this is allowed by the parser, but only as "export let a = 4; export { a as b };"
+          for (let specifier of stmt.specifiers) {
+            // other types require "source"
+            assert(specifier.type === 'ExportSpecifier');
+            let property = js.objectProperty(specifier.exported, specifier.local);
+            property.loc = specifier.loc;
+            context.exports.push(property);
+          }
         } else {
           throw new Error('empty export statement?');
         }

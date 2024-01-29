@@ -2,7 +2,7 @@ export type AbstractNodeTransformer<From, To, Context> =
   (context: Context) => AbstractTransformGenerator<From, To>;
 
 export type AbstractTransformGenerator<From, To> =
-  Generator<From[], To | To[], To[]>;
+  Generator<From[], To[], To[]>;
 
 export class AbstractTransformer<From, To, Context> {
   getTransform(_node: From): AbstractNodeTransformer<From, To, Context> {
@@ -28,29 +28,19 @@ export class AbstractTransformer<From, To, Context> {
 
         if (!stack.length) {
           // return new root
-          if (Array.isArray(up)) {
-            throw new Error('root cannot be array');
+          if (up.length !== 1) {
+            throw new Error('root must return only one element');
           }
-          return up;
+          return up[0];
         }
 
         // send to parent
         let top = stack[stack.length - 1];
-        // ensure array
-        let ret: To[];
-        if (Array.isArray(up)) {
-          ret = up
-        } else {
-          ret = [up];
-        }
-        resume = top.next(ret);
+        resume = top.next(up);
       } else {
         // process children
         let child = resume.value;
-        if (child.length === 0) {
-          // no children
-          resume = { done: true, value: [] };
-        } else if (child.length === 1) {
+        if (child.length === 1) {
           let genFn = this.getTransform(child[0]);
           let context = this.makeContext(child[0]);
           let gen = genFn(context);
@@ -58,7 +48,7 @@ export class AbstractTransformer<From, To, Context> {
           stack.push(gen);
         } else {
           // push adapter
-          let gen = flatMapGenerator(child) as AbstractTransformGenerator<From, To>;
+          let gen: AbstractTransformGenerator<From, To> = flatMapGenerator(child);
           resume = gen.next();
           stack.push(gen);
         }

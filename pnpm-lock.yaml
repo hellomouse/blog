@@ -11,12 +11,6 @@ importers:
       '@babel/core':
         specifier: ^7.23.7
         version: 7.23.7
-      '@babel/generator':
-        specifier: ^7.23.6
-        version: 7.23.6
-      '@babel/parser':
-        specifier: ^7.23.6
-        version: 7.23.6
       '@babel/types':
         specifier: ^7.23.6
         version: 7.23.6
@@ -32,9 +26,9 @@ importers:
       acorn-jsx:
         specifier: ^5.3.2
         version: 5.3.2(acorn@8.11.3)
-      babel-plugin-jsx-dom-expressions:
-        specifier: ^0.37.9
-        version: 0.37.9(@babel/core@7.23.7)
+      babel-preset-solid:
+        specifier: ^1.8.12
+        version: 1.8.12(@babel/core@7.23.7)
       estree-to-babel:
         specifier: ^9.0.0
         version: 9.0.0
@@ -93,6 +87,15 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0
     devDependencies:
+      '@babel/generator':
+        specifier: ^7.23.6
+        version: 7.23.6
+      '@babel/parser':
+        specifier: ^7.23.6
+        version: 7.23.6
+      '@types/babel__core':
+        specifier: ^7.20.5
+        version: 7.20.5
       '@types/estree':
         specifier: ^1.0.0
         version: 1.0.5
@@ -272,9 +275,9 @@ importers:
         specifier: ^1.8.7
         version: 1.8.7
     devDependencies:
-      '@babel/core':
-        specifier: ^7.23.7
-        version: 7.23.7
+      '@types/babel__core':
+        specifier: ^7.20.5
+        version: 7.20.5
       typescript:
         specifier: ^5.3.3
         version: 5.3.3
@@ -1691,6 +1694,19 @@ packages:
       resolve: 1.22.8
     dev: true
 
+  /babel-plugin-jsx-dom-expressions@0.37.16(@babel/core@7.23.7):
+    resolution: {integrity: sha512-ItMD16axbk+FqVb9vIbc7AOpNowy46VaSUHaMYPn+erPGpMCxsahQ1Iv+qhPMthjxtn5ROVMZ5AJtQvzjxjiNA==}
+    peerDependencies:
+      '@babel/core': ^7.20.12
+    dependencies:
+      '@babel/core': 7.23.7
+      '@babel/helper-module-imports': 7.18.6
+      '@babel/plugin-syntax-jsx': 7.23.3(@babel/core@7.23.7)
+      '@babel/types': 7.23.6
+      html-entities: 2.3.3
+      validate-html-nesting: 1.2.2
+    dev: false
+
   /babel-plugin-jsx-dom-expressions@0.37.9(@babel/core@7.23.7):
     resolution: {integrity: sha512-6w+zs2i14fVanj4e1hXCU5cp+x0U0LJ5jScknpMZZUteHhwFRGJflHMVJ+xAcW7ku41FYjr7DgtK9mnc2SXlJg==}
     peerDependencies:
@@ -1702,6 +1718,7 @@ packages:
       '@babel/types': 7.23.6
       html-entities: 2.3.3
       validate-html-nesting: 1.2.2
+    dev: true
 
   /babel-plugin-unassert@3.2.0:
     resolution: {integrity: sha512-dNeuFtaJ1zNDr59r24NjjIm4SsXXm409iNOVMIERp6ePciII+rTrdwsWcHDqDFUKpOoBNT4ZS63nPEbrANW7DQ==}
@@ -1712,6 +1729,15 @@ packages:
     dependencies:
       '@types/babel__core': 7.20.5
     dev: true
+
+  /babel-preset-solid@1.8.12(@babel/core@7.23.7):
+    resolution: {integrity: sha512-Fx1dYokeRwouWqjLkdobA6qvTAPxFSEU2c5PlkfJjlNyONlSMJQPaX0Bae5pc+5/LNteb9BseOp4UHwQu6VC9Q==}
+    peerDependencies:
+      '@babel/core': ^7.0.0
+    dependencies:
+      '@babel/core': 7.23.7
+      babel-plugin-jsx-dom-expressions: 0.37.16(@babel/core@7.23.7)
+    dev: false
 
   /babel-preset-solid@1.8.6(@babel/core@7.23.7):
     resolution: {integrity: sha512-Ened42CHjU4EFkvNeS042/3Pm21yvMWn8p4G4ddzQTlKaMwSGGD1VciA/e7EshBVHJCcBj9vHiUd/r3A4qLPZA==}

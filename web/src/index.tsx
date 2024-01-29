@@ -1,7 +1,7 @@
 import { render } from 'solid-js/web';
 import './index.css';
 import { createEffect, createSignal, onCleanup } from 'solid-js';
-import './global-process-polyfill';
+import './dev-global-process-polyfill';
 import { transformFromAstSync } from '@babel/standalone';
 import * as js from '@babel/types';
 
@@ -22,7 +22,7 @@ function App() {
 
   return <p>
     Hello {val()}
-    {output.code}
+    {output!.code}
   </p>;
 }
 

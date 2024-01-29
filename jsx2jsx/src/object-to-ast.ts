@@ -1,6 +1,6 @@
 import js, { Expression, ObjectProperty, isValidIdentifier } from '@babel/types';
 import { AbstractNodeTransformer, AbstractTransformer } from './tree-transformer.js';
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 
 export const IS_AST = Symbol('IS_AST');
 
@@ -14,17 +14,17 @@ export class ObjectToAST extends AbstractTransformer<any, Expression, any> {
       case 'object': {
         if (Array.isArray(node)) {
           return function* convertArray(value) {
-            if (node.length === 2 && Object.is(node[0], IS_AST)) {
+            if (value.length === 2 && Object.is(value[0], IS_AST)) {
               // handle raw AST
-              return value[1];
+              return [value[1]];
             } else {
               let children = yield value;
-              return js.arrayExpression(children);
+              return [js.arrayExpression(children)];
             }
           }
         } else if (Object.is(node, null)) {
           return function* convertNull() {
-            return js.nullLiteral();
+            return [js.nullLiteral()];
           }
         } else {
           return function* convertObject(value) {
@@ -39,7 +39,7 @@ export class ObjectToAST extends AbstractTransformer<any, Expression, any> {
               if (!Object.getOwnPropertyNames(desc).includes('value')) continue;
   
               let value = yield [desc.value];
-              assert(value.length === 1, 'object serializer cannot handle multiple values');
+              assert(value.length === 1, 'object serializer requires single value');
   
               let propKey;
               if (isValidIdentifier(key)) {
@@ -51,28 +51,28 @@ export class ObjectToAST extends AbstractTransformer<any, Expression, any> {
               properties.push(js.objectProperty(propKey, value[0]));
             }
   
-            return js.objectExpression(properties);
+            return [js.objectExpression(properties)];
           }
         }
       }
       case 'string': {
         return function* convertString(value) {
-          return js.stringLiteral(value);
+          return [js.stringLiteral(value)];
         }
       }
       case 'number': {
         return function* convertNumber(value) {
-          return js.numericLiteral(value);
+          return [js.numericLiteral(value)];
         }
       }
       case 'boolean': {
         return function* convertBoolean(value) {
-          return js.booleanLiteral(value);
+          return [js.booleanLiteral(value)];
         }
       }
       case 'bigint': {
         return function* convertBigint(value) {
-          return js.bigIntLiteral(value.toString());
+          return [js.bigIntLiteral(value.toString())];
         }
       }
       case 'function': {
@@ -83,7 +83,7 @@ export class ObjectToAST extends AbstractTransformer<any, Expression, any> {
       }
       case 'undefined': {
         return function* convertUndefined() {
-          return js.buildUndefinedNode();
+          return [js.buildUndefinedNode()];
         }
       }
     }

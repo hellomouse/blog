@@ -35,7 +35,7 @@ export function* toJsx(directive: NonContainerDirectiveInfo | ContainerDirective
 
   let out = makeJsxElement(jsxName, attributes, yield directive.children);
   copyLoc(directive, out);
-  return out;
+  return [out];
 }
 
 export const nonContainerDirectives = new Map<string, NonContainerDirectiveProcessor>(Object.entries({

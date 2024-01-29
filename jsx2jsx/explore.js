@@ -5,11 +5,13 @@ import acornJsx from 'acorn-jsx';
 import babelParser from '@babel/parser';
 import js from '@babel/types';
 import generator from '@babel/generator';
+import { transformFromAstSync } from '@babel/core';
 import parse, { mdxParseOptions, micromarkTestTokenize } from './build/src/parse.js';
 import * as convert from './build/src/convert.js';
 import { estreeToBabel } from './build/src/convert.js';
 import objectToAST, { IS_AST } from './build/src/object-to-ast.js';
 import { nonContainerDirectives, containerDirectives } from './build/src/directives.js';
+import { createModule } from './build/src/output.js';
 
 let jsParser = Parser.extend(acornJsx());
 
@@ -27,7 +29,6 @@ function makeTransformer() {
   return new convert.JSXTransform(convert.visitors, nonContainerDirectives, containerDirectives);
 }
 Object.assign(interact.context, {
-  // out,
   parse,
   parsejs: input => babelParser.parse(input, { sourceType: 'module', plugins: ['jsx'] }),
   parsejs2: input => jsParser.parse(input, { ecmaVersion: 2024, sourceType: 'module', locations: true }),
@@ -45,14 +46,18 @@ Object.assign(interact.context, {
   convert,
   tr: makeTransformer(),
   transform: input => {
+    let parsed = parse(input);
     let transformer = makeTransformer();
-    let out = generator.default(transformer.transformTree(parse(input)));
-    interact.pause
-    queueMicrotask(() => {
-      console.log(out.code);
-      interact.prompt();
+    let contentTree = transformer.transformTree(parsed);
+    let generated = createModule(transformer, contentTree);
+    let output = transformFromAstSync(generated, input, {
+      babelrc: false,
+      configFile: false,
+      code: true,
+      ast: true,
+      sourceMaps: 'both',
     });
-    return transformer;
+    console.log(output.code);
   },
   objectToAST,
   IS_AST,

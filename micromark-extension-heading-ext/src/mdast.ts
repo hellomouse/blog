@@ -1,7 +1,7 @@
 import type { Heading } from 'mdast';
 import type { CompileContext, Extension } from 'mdast-util-from-markdown';
 import type { Token } from 'micromark-util-types';
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 
 declare module 'mdast' {
   interface Heading {
