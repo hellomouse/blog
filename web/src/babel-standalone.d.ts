@@ -1,3 +1,3 @@
 declare module '@babel/standalone' {
-  export { transformFromAstSync } from '@babel/core';
+  export { transformFromAstSync as transformFromAst } from '@babel/core';
 }

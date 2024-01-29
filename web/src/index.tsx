@@ -2,7 +2,7 @@ import { render } from 'solid-js/web';
 import './index.css';
 import { createEffect, createSignal, onCleanup } from 'solid-js';
 import './dev-global-process-polyfill';
-import { transformFromAstSync } from '@babel/standalone';
+import { transformFromAst } from '@babel/standalone';
 import * as js from '@babel/types';
 
 function App() {
@@ -13,7 +13,7 @@ function App() {
     onCleanup(() => clearInterval(interval));
   });
 
-  let output = transformFromAstSync(
+  let output = transformFromAst(
     js.program([js.expressionStatement(js.arrowFunctionExpression([], js.stringLiteral('hello')))]),
     undefined,
     { code: true },

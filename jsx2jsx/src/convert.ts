@@ -481,7 +481,7 @@ export function* convertList(context: Context): VisitorGenerator {
   let attributes = [];
   if (node.ordered) {
     elementName = js.jsxIdentifier('ol');
-    if (typeof node.start === 'number') {
+    if (typeof node.start === 'number' && node.start !== 1) {
       attributes.push(js.jsxAttribute(
         js.jsxIdentifier('start'),
         js.jsxExpressionContainer(js.numericLiteral(node.start))
@@ -865,10 +865,17 @@ export function* convertText(context: Context): VisitorGenerator {
 
   if (node.value.match(/^[\w\s+\-/\.,?!@#$%():;'"]*$/)) {
     // "simple" text, emit JSXText to prevent clutter
-    return [js.jsxText(node.value)];
+    // TODO: is that regex safe?
+    let out = js.jsxText(node.value);
+    // needed by dom-expressions. we can (probably) safely put our value as raw due to regex
+    out.extra = { raw: node.value };
+    copyLoc(node, out);
+    return [out];
   } else {
     // wrap in string literal
-    return [js.jsxExpressionContainer(js.stringLiteral(node.value))];
+    let out = js.jsxExpressionContainer(js.stringLiteral(node.value));
+    copyLoc(node, out);
+    return [out];
   }
 }
 

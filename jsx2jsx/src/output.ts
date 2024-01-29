@@ -50,7 +50,7 @@ export function createModule(context: JSXTransform, contentTree: JSXFragment): P
     )
   ];
 
-  return js.program([
+  let out = js.program([
     ...context.imports,
     js.exportDefaultDeclaration(
       js.functionDeclaration(
@@ -60,4 +60,6 @@ export function createModule(context: JSXTransform, contentTree: JSXFragment): P
       )
     )
   ]);
+  out.loc = contentTree.loc;
+  return out;
 }

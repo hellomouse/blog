@@ -6,6 +6,7 @@ import babelParser from '@babel/parser';
 import js from '@babel/types';
 import generator from '@babel/generator';
 import { transformFromAstSync } from '@babel/core';
+import presetSolid from 'babel-preset-solid';
 import parse, { mdxParseOptions, micromarkTestTokenize } from './build/src/parse.js';
 import * as convert from './build/src/convert.js';
 import { estreeToBabel } from './build/src/convert.js';
@@ -45,18 +46,22 @@ Object.assign(interact.context, {
   js,
   convert,
   tr: makeTransformer(),
-  transform: input => {
+  transform: (input, solid = true) => {
     let parsed = parse(input);
     let transformer = makeTransformer();
     let contentTree = transformer.transformTree(parsed);
     let generated = createModule(transformer, contentTree);
     let output = transformFromAstSync(generated, input, {
+      filename: 'input.mdx',
       babelrc: false,
       configFile: false,
       code: true,
       ast: true,
       sourceMaps: 'both',
+      presets: solid ? [[presetSolid, { generate: 'dom', hydratable: true }]] : [],
+      plugins: [],
     });
+    interact.context.output = output;
     console.log(output.code);
   },
   objectToAST,
