@@ -46,7 +46,7 @@ Object.assign(interact.context, {
   js,
   convert,
   tr: makeTransformer(),
-  transform: (input, solid = true) => {
+  transform: (input, solid = false) => {
     let parsed = parse(input);
     let transformer = makeTransformer();
     let contentTree = transformer.transformTree(parsed);

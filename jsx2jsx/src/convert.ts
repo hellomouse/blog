@@ -751,7 +751,7 @@ export function* convertImage(context: Context): VisitorGenerator {
       js.jsxAttribute(js.jsxIdentifier('alt'), js.stringLiteral(node.alt))
     );
   }
-  let out = makeJsxElement('img', attributes, null);
+  let out = makeJsxElement(makeContextComponentName('Image'), attributes, null);
   copyLoc(node, out);
   return [out];
 }
@@ -778,7 +778,7 @@ export function* convertLinkReference(context: Context): VisitorGenerator {
 export function* convertImageReference(context: Context): VisitorGenerator {
   let node = context.current;
   assert(node.type === 'imageReference');
-  let out = makeJsxElement('img', [], null);
+  let out = makeJsxElement(makeContextComponentName('Image'), [], null);
   copyLoc(node, out);
   let attributes = out.openingElement.attributes;
   if (node.alt) {
