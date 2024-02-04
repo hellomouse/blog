@@ -1,27 +1,9 @@
-import { createEffect, createSignal, onCleanup } from 'solid-js';
-
-export const [value, setValue] = createSignal(0);
-export const _init = (() => {
-  createEffect(() => {
-    let timeout = setInterval(() => setValue(v => v + 1), 1000);
-    onCleanup(() => clearInterval(timeout));
-  });
-})();
-
-# Hello!
-
-This is a demonstration of the `jsx2jsx` compiler. The value is currently {value()}.
-
-## Another button
-
-<button onClick={() => setValue(v => v + 1)}>Increment</button>
-
 # Intuition
 {/* Describe your first thoughts on how to solve this problem. */}
 
 Let your number of *chances* to test be $$\lfloor{\text{minutesToTest} / \text{minutesToDie}}\rfloor$$. Let's see if we can derive any patterns.
 
-### *One* Pig Case
+### One Pig Case
 Suppose you had one pig and one chance at testing. You can test at most 2 buckets (if the pig doesn't die drinking bucket #1 then it's bucket #2).
 
 Now suppose you had 2 chances at testing. Now you can test at most 3 buckets by testing the first two buckets (if neither are poison the third one must be.)

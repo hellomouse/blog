@@ -273,9 +273,6 @@ importers:
       '@types/node':
         specifier: ^20.0.0
         version: 20.10.6
-      rollup:
-        specifier: ^4.9.6
-        version: 4.9.6
       typescript:
         specifier: ^5.3.3
         version: 5.3.3
@@ -300,9 +297,21 @@ importers:
         specifier: ^1.8.7
         version: 1.8.7
     devDependencies:
+      '@hellomouse/remark-mdx-glue':
+        specifier: workspace:^
+        version: link:../remark-mdx-glue
       '@types/babel__core':
         specifier: ^7.20.5
         version: 7.20.5
+      remark-directive:
+        specifier: ^3.0.0
+        version: 3.0.0
+      remark-frontmatter:
+        specifier: ^5.0.0
+        version: 5.0.0
+      remark-math:
+        specifier: ^6.0.0
+        version: 6.0.0
       typescript:
         specifier: ^5.3.3
         version: 5.3.3

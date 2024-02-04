@@ -59,7 +59,7 @@ export function createModule(context: JSXTransform, contentTree: JSXFragment): P
         js.blockStatement(fnBody)
       )
     )
-  ]);
+  ], [], 'module');
   out.loc = contentTree.loc;
   return out;
 }

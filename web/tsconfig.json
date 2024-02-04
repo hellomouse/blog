@@ -22,5 +22,13 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "references": [{ "path": "./tsconfig.node.json" }],
+  "mdx": {
+    "plugins": [
+        "remark-math",
+        "remark-frontmatter",
+        "remark-directive",
+        "@hellomouse/remark-mdx-glue"
+    ]
+  }
 }
