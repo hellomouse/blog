@@ -1,29 +1,24 @@
-import { render } from 'solid-js/web';
+import { Dynamic, render } from 'solid-js/web';
 import './index.css';
-import { createEffect, createSignal, onCleanup } from 'solid-js';
 import './dev-global-process-polyfill';
-import { transformFromAst } from '@babel/standalone';
-import * as js from '@babel/types';
+import test from './test.mdx';
 
 function App() {
-  let [val, setVal] = createSignal(0);
+  let article: any;
+  let context = {
+    el: {
+      Heading(props: any) {
+        return <Dynamic component={'h' + props.depth} id={props.identifier}>
+          {article.headings[props.identifier]()}
+        </Dynamic>;
+      }
+    }
+  }
+  article = test(context);
 
-  createEffect(() => {
-    let interval = setInterval(() => setVal(a => a + 1), 1000);
-    onCleanup(() => clearInterval(interval));
-  });
-
-  let output = transformFromAst(
-    js.program([js.expressionStatement(js.arrowFunctionExpression([], js.stringLiteral('hello')))]),
-    undefined,
-    { code: true },
-  );
-  console.log(output);
-
-  return <p>
-    Hello {val()}
-    {output!.code}
-  </p>;
+  return <div>
+    {article.content()}
+  </div>;
 }
 
 const root = document.getElementById('root')!;

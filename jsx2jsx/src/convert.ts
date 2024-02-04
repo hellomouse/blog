@@ -1188,4 +1188,6 @@ let visitorMap: Partial<Record<MdastNode['type'], NodeVisitor>> = {
   mdxjsEsm: convertMdxjsEsm,
 };
 
-export const visitors = new Map(Object.entries(visitorMap) as [MdastNode['type'], NodeVisitor][]);
+export const visitors: Map<MdastNode['type'], NodeVisitor> = new Map(
+  Object.entries(visitorMap) as [MdastNode['type'], NodeVisitor][]
+);

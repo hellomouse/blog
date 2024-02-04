@@ -1,0 +1,13 @@
+import { createEffect, createSignal, onCleanup } from 'solid-js';
+
+export const [value, setValue] = createSignal(0);
+export const _init = (() => {
+  createEffect(() => {
+    let timeout = setInterval(() => setValue(v => v + 1), 1000);
+    onCleanup(() => clearInterval(timeout));
+  });
+})();
+
+# Hello!
+
+This is a demonstration of the `jsx2jsx` compiler. The value is currently {value()}.

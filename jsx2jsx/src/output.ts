@@ -45,7 +45,7 @@ export function createModule(context: JSXTransform, contentTree: JSXFragment): P
         headings,
         headingTree: context.headingTree,
         footnotes,
-        content: astNode(contentTree),
+        content: astNode(js.arrowFunctionExpression([], contentTree)),
       })
     )
   ];

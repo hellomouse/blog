@@ -10,6 +10,7 @@
   "dependencies": {
     "@babel/standalone": "^7.23.9",
     "@babel/types": "^7.23.6",
+    "@hellomouse/rollup-plugin-jsx2jsx": "workspace:^",
     "solid-js": "^1.8.7"
   },
   "devDependencies": {

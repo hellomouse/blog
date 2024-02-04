@@ -1,0 +1,23 @@
+{
+  "name": "@hellomouse/rollup-plugin-jsx2jsx",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Rollup transform for jsx2jsx",
+  "main": "src/index.js",
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "https://github.com/hellomouse/blog/tree/master/rollup-plugin-jsx2jsx",
+  "author": "iczero <iczero@hellomouse.net>",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
+  },
+  "dependencies": {
+    "@babel/generator": "^7.23.6",
+    "jsx2jsx": "workspace:^"
+  }
+}
