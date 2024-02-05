@@ -126,7 +126,7 @@ hr {
     0px 4px 4.2px -2px hsl(var(--shadow-color) / 0.24),
     0.1px 9.9px 10.4px -3px hsl(var(--shadow-color) / 0.21);
 }
-.blog-container .inline-footnote:hover>.inline-footnote__hover {
+.blog-container .inline-footnote:hover > .inline-footnote__hover {
   display: block;
 }
 

@@ -48,7 +48,7 @@ export interface Context {
   headingCounters: number[];
   headingComponents: Record<string, ArrowFunctionExpression>;
   nextFootnoteIndex: () => number;
-  footnoteComponents: Record<string, [number, ArrowFunctionExpression]>;
+  footnoteComponentsPartial: Record<string, JSXNode[]>;
   footnoteIndexes: Map<string, number>;
   nonContainerDirectiveHandlers: Map<string, NonContainerDirectiveProcessor>;
   containerDirectiveHandlers: Map<string, ContainerDirectiveProcessor>;
@@ -112,6 +112,8 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
   public _headingCounters!: number[];
   /** Heading tree */
   public headingTree!: HeadingInfo[];
+  /** Partial footnotes */
+  public _footnoteComponentsPartial!: Record<string, JSXNode[]>;
   /** Footnote components: [index, component] */
   public footnoteComponents!: Record<string, [number, ArrowFunctionExpression]>;
   /** Footnote identifier to index */
@@ -149,6 +151,7 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
     this._headingStack = [];
     this._headingCounters = [];
     this.headingTree = [];
+    this._footnoteComponentsPartial = {};
     this.footnoteComponents = {};
     this._footnoteIndexes = new Map();
     this._footnoteCounter = 1;
@@ -186,7 +189,7 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
       nextFootnoteIndex() {
         return self._footnoteCounter++;
       },
-      footnoteComponents: self.footnoteComponents,
+      footnoteComponentsPartial: self._footnoteComponentsPartial,
       footnoteIndexes: self._footnoteIndexes,
       nonContainerDirectiveHandlers: self.nonContainerDirectiveHandlers,
       containerDirectiveHandlers: self.containerDirectiveHandlers,
@@ -234,9 +237,12 @@ export class JSXTransform extends AbstractTransformer<MdastNode, JSXNode, Contex
 
     this.headingTree = this._headingStack[0] ?? [];
 
-    // resolve footnote indexes
+    // resolve footnotes
     for (let [key, index] of this._footnoteIndexes) {
-      this.footnoteComponents[key][0] = index;
+      this.footnoteComponents[key] = [
+        index,
+        js.arrowFunctionExpression([], makeJsxFragment(this._footnoteComponentsPartial[key]))
+      ];
     }
   
     return out;
@@ -804,25 +810,24 @@ export function* convertFootnoteDefinition(context: Context): VisitorGenerator {
   assert(node.type === 'footnoteDefinition');
   
   let identifier = node.identifier;
-  if (identifier in context.footnoteComponents) {
-    throw new Error('duplicate footnote identifier: ' + identifier);
-  }
-  let defId = `footnote-def-${identifier}`;
-  let refId = `footnote-ref-${identifier}`;
-  if (context.identifiers.has(defId)) {
-    throw new Error('footnote identifier collides: ' + defId);
-  }
-  if (context.identifiers.has(refId)) {
-    throw new Error('footnote identifier collides: ' + refId);
-  }
-  context.identifiers.add(defId);
-  context.identifiers.add(refId);
+  let footnote = context.footnoteComponentsPartial[identifier];
+  if (!footnote) {
+    let defId = `footnote-def-${identifier}`;
+    let refId = `footnote-ref-${identifier}`;
+    if (context.identifiers.has(defId)) {
+      throw new Error('footnote identifier collides: ' + defId);
+    }
+    if (context.identifiers.has(refId)) {
+      throw new Error('footnote identifier collides: ' + refId);
+    }
+    context.identifiers.add(defId);
+    context.identifiers.add(refId);
 
-  let component = js.arrowFunctionExpression([], makeJsxFragment(yield node.children));
-  copyLoc(node, component);
-  // index resolved later
-  context.footnoteComponents[identifier] = [-1, component];
+    footnote = [];
+    context.footnoteComponentsPartial[identifier] = footnote;
+  }
 
+  footnote.push(...yield node.children);
   return [];
 }
 

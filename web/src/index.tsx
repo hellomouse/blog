@@ -44,7 +44,7 @@ function App() {
           <div class="inline-footnote__hover">
             <div class="blog-post__footnote">
               <a class="blog-post__footnote__link" href={`#footnote-ref-${props.identifier}`}>{props.index}</a>
-              {article.footnotes[props.identifier][1]()}
+              <div>{article.footnotes[props.identifier][1]()}</div>
             </div>
           </div>
         </sup>
