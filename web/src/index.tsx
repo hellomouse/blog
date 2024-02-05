@@ -1,11 +1,10 @@
 import { Dynamic, render } from 'solid-js/web';
-import { createSignal, createEffect } from 'solid-js';
-import './index.css';
-import './blog.css';
+import { createSignal, createEffect, onCleanup } from 'solid-js';
+import './css/font.css';
+import './css/index.css';
+import './css/blog.css';
 
 import TableOfContents from './components/TableOfContents';
-import Footnote from './components/Footnote';
-
 import test from './test.mdx';
 
 function App() {
@@ -32,10 +31,10 @@ function App() {
       },
       Footnote(props: any) {
         return <sup class="inline-footnote" id={`inline-footnote-${props.identifier}`}>
-          <a href={`#footnote-${props.identifier}`}>{props.identifier}</a>
+          <a href={`#footnote-${props.identifier}`}>{props.index}</a>
           <div class="inline-footnote__hover">
             <div class="blog-post__footnote">
-              <a class="blog-post__footnote__link" href={`#inline-footnote-${props.identifier}`}>{props.identifier}</a>
+              <a class="blog-post__footnote__link" href={`#inline-footnote-${props.identifier}`}>{props.index}</a>
               {article.footnotes[props.identifier][1]()}
             </div>
           </div>
@@ -54,10 +53,8 @@ function App() {
   createEffect(() => {
     updateIsDesktop();
     window.addEventListener('resize', updateIsDesktop);
-    return () => window.removeEventListener('resize', updateIsDesktop);
+    onCleanup(() => window.removeEventListener('resize', updateIsDesktop));
   });
-
-  console.log(article) // TODO
 
   return <div class="blog-post">
     {isDesktop() ? <TableOfContents article={article} /> : <></> }
@@ -79,7 +76,7 @@ function App() {
         {Object.keys(article.footnotes).map((footnoteID: any) => {
           const footnote = article.footnotes[footnoteID];
           return <div class="blog-post__footnote" id={`footnote-${footnoteID}`}>
-            <a class="blog-post__footnote__link" href={`#inline-footnote-${footnoteID}`}>{footnoteID}</a>
+            <a class="blog-post__footnote__link" href={`#inline-footnote-${footnoteID}`}>{footnote[0]}</a>
             <span class="blog-post__footnote__content">{footnote[1]}</span>
           </div>;
         })}

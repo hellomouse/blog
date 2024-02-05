@@ -1,13 +1,9 @@
-/* TODO: don't import */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&family=Roboto+Condensed&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;1,400;1,500&display=swap');
-
 :root {
-  font-family: sans-serif;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: 'IBMPlexSans', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-size: 12pt;
+  letter-spacing: -0.015em;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -126,6 +122,35 @@ hr {
 .blog-container .inline-footnote:hover>.inline-footnote__hover {
   display: block;
 }
+
+.blog-container button {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0;
+  outline: none;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.blog-container button:focus,
+.blog-container input[type="text"]:focus,
+.blog-container input[type="password"]:focus,
+.blog-container textarea:focus {
+  border: 1px solid var(--link-color);
+}
+.blog-container button:hover {
+  background-color: #fafafa;
+}
+
+.blog-container input[type="text"],
+.blog-container input[type="password"],
+.blog-container textarea {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0;
+  outline: none;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.2s;
+}
+
 
 /* Custom scrollbars */
 /* Firefox */
