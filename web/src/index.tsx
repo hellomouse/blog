@@ -1,5 +1,10 @@
 import { Dynamic, render } from 'solid-js/web';
-import './index.css';
+import { createSignal, createEffect, onCleanup } from 'solid-js';
+import './css/font.css';
+import './css/index.css';
+import './css/blog.css';
+
+import TableOfContents from './components/TableOfContents';
 import test from './test.mdx';
 
 function App() {
@@ -19,24 +24,66 @@ function App() {
         }
       },
       Code(props: any) {
-        return <pre><code>{props.children}</code></pre>;
+        return <pre class="code-block"><code>{props.children}</code></pre>;
       },
       Blockquote(props: any) {
         return <blockquote>{props.children}</blockquote>;
       },
       Footnote(props: any) {
-        return <span>[footnote {props.index}]</span>
+        return <sup class="inline-footnote" id={`inline-footnote-${props.identifier}`}>
+          <a href={`#footnote-${props.identifier}`}>{props.index}</a>
+          <div class="inline-footnote__hover">
+            <div class="blog-post__footnote">
+              <a class="blog-post__footnote__link" href={`#inline-footnote-${props.identifier}`}>{props.index}</a>
+              {article.footnotes[props.identifier][1]()}
+            </div>
+          </div>
+        </sup>
       },
       Image(props: any) {
-        return <span>[image: {props.src}]</span>
+        return <img class="post-img" src={props.src} alt={props.alt}></img>
       },
     }
   }
   article = test(context);
 
-  return <div>
-    {article.content()}
-  </div>;
+  const [isDesktop, setIsDesktop] = createSignal(true);
+  const updateIsDesktop = () => setIsDesktop(window.innerWidth > 900);
+
+  createEffect(() => {
+    updateIsDesktop();
+    window.addEventListener('resize', updateIsDesktop);
+    onCleanup(() => window.removeEventListener('resize', updateIsDesktop));
+  });
+
+  return <div class="blog-post">
+    {isDesktop() ? <TableOfContents article={article} /> : <></> }
+    <div class="blog-container">
+      <section style="margin-bottom: 30px">
+        <p class="blog-post__tags"><span class="blog-post__tags__tag">Tags</span></p>
+
+        <section class="blog-post__title">
+          <h1>My Experimental Blog Post</h1>
+          <a href="/" class="blog-post__title__username">Bowserinator &nbsp; / &nbsp; Oct 1, 2022 </a>
+        </section>
+      </section>
+
+      {!isDesktop() ? <TableOfContents article={article} /> : <></>}
+
+      {article.content()}
+
+      <section class="blog-post__footnote_container">
+        {Object.keys(article.footnotes).map((footnoteID: any) => {
+          const footnote = article.footnotes[footnoteID];
+          return <div class="blog-post__footnote" id={`footnote-${footnoteID}`}>
+            <a class="blog-post__footnote__link" href={`#inline-footnote-${footnoteID}`}>{footnote[0]}</a>
+            <span class="blog-post__footnote__content">{footnote[1]}</span>
+          </div>;
+        })}
+      </section>
+    </div>
+
+  </div>
 }
 
 const root = document.getElementById('root')!;
