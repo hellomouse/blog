@@ -14,7 +14,9 @@
         "isolatedModules": true,
         "composite": true,
         "lib": [
-            "esnext"
+            "esnext",
+            "DOM",
+            "DOM.Iterable"
         ],
         "outDir": "build"
     },

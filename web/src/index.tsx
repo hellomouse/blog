@@ -1,46 +1,55 @@
 import { Dynamic, render } from 'solid-js/web';
-import { createSignal, createEffect, onCleanup } from 'solid-js';
+import { createSignal, createEffect, onCleanup, Show, For, JSX } from 'solid-js';
 import './css/font.css';
 import './css/index.css';
 import './css/blog.css';
-
 import TableOfContents from './components/TableOfContents';
 import test from './test.mdx';
+import { Article, Context } from 'jsx2jsx';
+
+function makeFootnotesList(footnotes: Article['footnotes']): [number, string, () => JSX.Element][] {
+  // need this as object order is not guaranteed
+  let arr: [number, string, () => JSX.Element][] = [];
+  for (let [name, [index, footnote]] of Object.entries(footnotes)) {
+    arr[index] = [index, name, footnote];
+  }
+  return arr.slice(1);
+}
 
 function App() {
-  let article: any;
-  let context = {
+  let article!: Article;
+  let context: Context = {
     el: {
-      Heading(props: any) {
+      Heading(props) {
         return <Dynamic component={'h' + props.depth} id={props.identifier}>
           {article.headings[props.identifier]()}
         </Dynamic>;
       },
-      Math(props: any) {
+      Math(props) {
         if (props.type === 'block') {
           return <pre><code>{'(block math)\n'}{props.children}</code></pre>;
         } else {
           return <code>{'(inline math) '}{props.children}</code>;
         }
       },
-      Code(props: any) {
+      Code(props) {
         return <pre class="code-block"><code>{props.children}</code></pre>;
       },
-      Blockquote(props: any) {
+      Blockquote(props) {
         return <blockquote>{props.children}</blockquote>;
       },
-      Footnote(props: any) {
-        return <sup class="inline-footnote" id={`inline-footnote-${props.identifier}`}>
-          <a href={`#footnote-${props.identifier}`}>{props.index}</a>
+      Footnote(props) {
+        return <sup class="inline-footnote" id={`footnote-ref-${props.identifier}`}>
+          <a href={`#footnote-def-${props.identifier}`}>{props.index}</a>
           <div class="inline-footnote__hover">
             <div class="blog-post__footnote">
-              <a class="blog-post__footnote__link" href={`#inline-footnote-${props.identifier}`}>{props.index}</a>
+              <a class="blog-post__footnote__link" href={`#footnote-ref-${props.identifier}`}>{props.index}</a>
               {article.footnotes[props.identifier][1]()}
             </div>
           </div>
         </sup>
       },
-      Image(props: any) {
+      Image(props) {
         return <img class="post-img" src={props.src} alt={props.alt}></img>
       },
     }
@@ -57,7 +66,9 @@ function App() {
   });
 
   return <div class="blog-post">
-    {isDesktop() ? <TableOfContents article={article} /> : <></> }
+    <Show when={isDesktop()}>
+      <TableOfContents article={article} />
+    </Show>
     <div class="blog-container">
       <section style="margin-bottom: 30px">
         <p class="blog-post__tags"><span class="blog-post__tags__tag">Tags</span></p>
@@ -68,18 +79,19 @@ function App() {
         </section>
       </section>
 
-      {!isDesktop() ? <TableOfContents article={article} /> : <></>}
+      <Show when={!isDesktop()}>
+        <TableOfContents article={article} />
+      </Show>
 
       {article.content()}
 
       <section class="blog-post__footnote_container">
-        {Object.keys(article.footnotes).map((footnoteID: any) => {
-          const footnote = article.footnotes[footnoteID];
-          return <div class="blog-post__footnote" id={`footnote-${footnoteID}`}>
-            <a class="blog-post__footnote__link" href={`#inline-footnote-${footnoteID}`}>{footnote[0]}</a>
-            <span class="blog-post__footnote__content">{footnote[1]}</span>
-          </div>;
-        })}
+        <For each={makeFootnotesList(article.footnotes)}>
+          {([index, id, footnote]) => <div class="blog-post__footnote" id={`footnote-def-${id}`}>
+            <a class="blog-post__footnote__link" href={`#footnote-ref-${id}`}>{index}</a>
+            <span class="blog-post__footnote__content">{footnote()}</span>
+          </div>}
+        </For>
       </section>
     </div>
 
