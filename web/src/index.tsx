@@ -40,7 +40,7 @@ function App() {
       },
       Footnote(props) {
         return <sup class="inline-footnote" id={`footnote-ref-${props.identifier}`}>
-          <a href={`#footnote-def-${props.identifier}`}>{props.index}</a>
+          <a href={`#footnote-def-${props.identifier}`}>[{props.index}]</a>
           <div class="inline-footnote__hover">
             <div class="blog-post__footnote">
               <a class="blog-post__footnote__link" href={`#footnote-ref-${props.identifier}`}>{props.index}</a>
@@ -88,7 +88,7 @@ function App() {
       <section class="blog-post__footnote_container">
         <For each={makeFootnotesList(article.footnotes)}>
           {([index, id, footnote]) => <div class="blog-post__footnote" id={`footnote-def-${id}`}>
-            <a class="blog-post__footnote__link" href={`#footnote-ref-${id}`}>{index}</a>
+            <a class="blog-post__footnote__link" href={`#footnote-ref-${id}`}>^{index}</a>
             <span class="blog-post__footnote__content">{footnote()}</span>
           </div>}
         </For>

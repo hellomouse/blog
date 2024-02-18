@@ -40,7 +40,7 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
     effects.enter('atxHeadingExt');
     effects.enter('atxHeadingExtStartSequence');
 
-    return startSequence;
+    return startSequence(code);
   }
 
   /**
@@ -58,10 +58,27 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
       return startSequence;
     } else if (markdownSpace(code)) {
       effects.exit('atxHeadingExtStartSequence');
-      return factorySpace(effects, dataBegin, types.whitespace)(code);
+      return factorySpace(effects, afterStartSequence, types.whitespace)(code);
     } else {
       // not acceptable
       return nok(code);
+    }
+  }
+
+  /**
+   * After start sequence, before data
+   * 
+   * ```markdown
+   * > | ## Hello
+   *        ^
+   * ```
+   */
+  function afterStartSequence(code: Code): State | undefined {
+    if (markdownLineEnding(code) || code === codes.eof) {
+      // heading with no data
+      return nok(code);
+    } else {
+      return dataBegin(code);
     }
   }
 
@@ -75,7 +92,7 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
    */
   function dataBegin(code: Code): State | undefined {
     effects.enter('atxHeadingExtText');
-    return data;
+    return data(code);
   }
 
   /**
@@ -89,7 +106,7 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
   function data(code: Code): State | undefined {
     if (code === codes.eof || markdownLineEnding(code)) {
       effects.exit('atxHeadingExtText');
-      return end;
+      return end(code);
     } else if (markdownSpace(code)) {
       effects.exit('atxHeadingExtText');
       return factorySpace(effects, afterBreak, types.whitespace)(code);
@@ -201,7 +218,7 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
       if (code === codes.eof || markdownLineEnding(code)) {
         return ok(code);
       } else if (markdownSpace(code)) {
-        return effects.attempt({ tokenize: endLine }, ok, maybeEndSequence);
+        return effects.attempt({ tokenize: endLine }, ok, maybeEndSequence)(code);
       } else {
         // note: a space is needed between the identifier and end sequence
         return nok(code);
@@ -218,7 +235,7 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
      */
     function maybeEndSequence(code: Code): State | undefined {
       if (markdownSpace(code)) {
-        return factorySpace(effects, maybeEndSequence, types.whitespace);
+        return factorySpace(effects, maybeEndSequence, types.whitespace)(code);
       } else if (code === codes.numberSign) {
         return effects.attempt({ tokenize: endSequence }, ok, nok)(code);
       } else {
@@ -252,7 +269,7 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
         return within;
       } else {
         effects.exit('atxHeadingExtEndSequence');
-        return effects.attempt({ tokenize: endLine }, ok, nok);
+        return effects.attempt({ tokenize: endLine }, ok, nok)(code);
       }
     }
   }
@@ -270,7 +287,7 @@ export function tokenizeHeading(this: TokenizeContext, effects: Effects, ok: Sta
 
     function tryLine(code: Code): State | undefined {
       if (markdownSpace(code)) {
-        return factorySpace(effects, tryLine, types.lineSuffix);
+        return factorySpace(effects, tryLine, types.lineSuffix)(code);
       } else if (code === codes.eof || markdownLineEnding(code)) {
         return ok(code);
       } else {

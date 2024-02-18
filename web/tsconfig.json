@@ -28,6 +28,7 @@
         "remark-math",
         "remark-frontmatter",
         "remark-directive",
+        "remark-footnotes",
         "@hellomouse/remark-mdx-glue"
     ]
   }

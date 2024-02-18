@@ -110,6 +110,9 @@ hr {
 .blog-container .inline-footnote {
   position: relative;
 }
+.blog-container .inline-footnote:target {
+  background-color: lightblue;
+}
 .blog-container .inline-footnote > .inline-footnote__hover {
   position: absolute;
   display: none;

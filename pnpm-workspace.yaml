@@ -4,6 +4,5 @@ packages:
   - micromark-extension-mdx-jsx
   - remark-mdx-glue
   - vscode-mdx-grammar-hack
-  - mdx-test
   - micromark-extension-heading-ext
   - rollup-plugin-jsx2jsx
