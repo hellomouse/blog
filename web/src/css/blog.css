@@ -65,7 +65,7 @@
 }
 
 .blog-container {
-  max-width: min(940px, 100vw);
+  max-width: min(80rem, 100vw);
   padding: 30px;
   padding-left: 60px;
   min-height: 100vh;
@@ -86,7 +86,7 @@
   margin: 5px 0;
   color: black;
   opacity: 0.7;
-  letter-spacing: -0.05rem;
+  white-space: pre-wrap;
 
   display: block;
   text-transform: uppercase;

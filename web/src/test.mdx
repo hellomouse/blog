@@ -12,108 +12,73 @@ export const _init = (() => {
 
 This is a demonstration of the `jsx2jsx` compiler. The value is currently {value()}.
 
-||spoiler||
-
-> Blockquote
-
-![image wtf](https://i.imgur.com/hSIFJnq.jpg)
-
-Here is a simple footnote[^1][^3]. With some additional text after it.[^5]
-
-[^1]: My reference. *I love footnotes*
-[^1]: Another paragraph.
-[^3]: My reference. *I love footnotes* **Suppose you had one pig and one chance at testing. You can test at most 2 buckets** (if the pig doesn't die drinking bucket #1 then it's bucket #2).Suppose you had one pig and one chance at testing. You can test at most 2 buckets (if the pig doesn't die drinking bucket #1 then it's bucket #2).Suppose you had one pig and one chance at testing. You can test at most 2 buckets (if the pig doesn't die drinking bucket #1 then it's bucket #2).
-[^5]: Lol
+This is a button. <button onClick={() => setValue(v => v + 1)}>Increment</button>
 
 ---
 
-## Another button
+{/* TODO: actually deal with titles and descriptions */}
+# Title: Paying people to work on Open Source is good, actually
 
-<button onClick={() => setValue(v => v + 1)}>Increment</button>
+This post is a response to [*Paying people to work on open source is good actually*, at jacobian.org](https://jacobian.org/2024/feb/16/paying-maintainers-is-good/). In that post, the author argues that we ought to pay people who work on open source. I fully agree, with one notable exception.
 
-<input type="text" />
+> Note the deliberate use of lower case. I'm not referring to Open Source™ as defined by OSI, nor to Free Software™ as defined by the FSF. I mean these terms in the broadest, most inclusive sense: "software with source code that I can read and modify and release variants of, perhaps under some conditions."
+>
+> [...]
+>
+> I'll put it this way: if my sloppy use of these terms bothers you in the context of talking about how people make their living, it implies that you care more about terminology and definitions than about the people, and I'd like you to sit in that discomfort for a while.
 
-<input type="range" />
+There is no discomfort to be had for one simple reason: I do not particularly care about "pseudo-open source".
 
-<textarea />
+# Proprietary software is not open source
 
-# Intuition
-{/* Describe your first thoughts on how to solve this problem. */}
+Let's talk about Microsoft® Windows™. Under the OSI definition of "open source", Windows is clearly *not* open source. Windows is, however, source-available, under the Enterprise Source Licensing Program[^windows-ssi-note].
 
-Let your number of *chances* to test be $$\lfloor{\text{minutesToTest} / \text{minutesToDie}}\rfloor$$. Let's see if we can derive any patterns.
+[^windows-ssi-note]: It should be noted that there are other programs under the Shared Source Initiative, including for OEMs and MVPs (Microsoft's Most Valuable Professionals™).
 
-### *One* Pig Case
-Suppose you had one pig and one chance at testing. You can test at most 2 buckets (if the pig doesn't die drinking bucket #1 then it's bucket #2).
+> The Enterprise Source Licensing Program (ESLP) licenses Microsoft Windows source code to qualified enterprise customers. The ESLP provides source code for most major releases and service packs of Windows (client and server).
+>
+> &mdash; [*Shared Source Initiative*, microsoft.com](https://www.microsoft.com/en-us/sharedsource/enterprise-source-licensing-program.aspx)
 
-Now suppose you had 2 chances at testing. Now you can test at most 3 buckets by testing the first two buckets (if neither are poison the third one must be.)
+Source-available software is proprietary software, and proprietary software is not open source. This isn't really controversial. Software companies do not advertise source-available software as open source software because that would be false advertising. Companies who transitioned away from open source to a source-available license likewise dropped the term "open source" from their websites and documentation.
 
-So for one pig, the number of buckets we can test is $\text{chances} + 1$
+But what if someone wanted to write some source-available software and then make money off of it? Simple![^sell-software] They would simply market it and sell it, just like any other proprietary software. There's software-as-a-service, per-user licensing, per-machine licensing, per-core licensing, per-year licensing, per-planetary syzygy licensing, per-moon-like superweapon licensing, free but you give us all your data licensing, etc. There is practically no limit to how you can monetize proprietary software. After all, it is literally illegal for people to use your software without your permission.
 
-### More Pigs
+[^sell-software]: Maybe not *that* simple, because you still need to get people to like your software. You'd need the same in open source as well, though.
 
-Suppose we had one chance at testing and two pigs. We can test 4 buckets by:
-1. Buckets 1, 2 go to pig 1
-2. Buckets 1, 3 go to pig 2
+# Open source software is not proprietary
 
-We can think of arranging the buckets in a $(\text{chances} + 1) \times (\text{chances} + 1)$ matrix:
+Open source software differs from proprietary software by granting you rights by default. There is no contract to sign and no EULA you must agree to. 
 
-```
-1 2
-3 4
-```
+- open source may be forked
+- open source is often foundational
+- if the EU or some other government decides to sponsor open source, they should not sponsor "pseudo-open source"
 
-Where pig 1 is fed the first $\text{chances}$ rows row by row and pig 2 is fed the first $\text{chances}$ columns column by column. 
+## Open source projects are often communities
 
-Note the pigs are independent, each individual pig is the same as the one-pig case! That means every pig can individually identify a single coordinate the poisoned bucket is in (in this example, pig 1 identifies the row coordinate and pig 2 the column coordinate, put together gives you the coordinate of the poisoned bucket)
+> People who consider the BSL to be open source are assholes trying to destroy communities, plain and simple, tbh.
+>
+> &mdash; an unattributed individual on IRC
 
-### Larger Example
+- about the "bait and switch"
+- unequal licenses, such as CLAs or BSL, are incompatible with communities
 
-Let's assume we have `2 chances` and 3 pigs. We can index up to 27 buckets, as shown in the $3 \times 3 \times 3$ cube below:
+## The open/proprietary relationship is deeply inequal
 
-```
-(Top layer)   (Middle Layer)    (Bottom layer)
-   1 2 3          10 11 12          19 20 21
-   4 5 6          13 14 15          22 23 24
-   7 8 9          16 17 18          25 26 27
-```
+- proprietary software overwhelmingly requires open source software to function
+- open source cannot reasonably require proprietary components
 
-For indexing, let's assume the top/bottom dimension is z and is last (0 indexed), so for example given `buckets[x][y][z]` we have `buckets[0][0][0] = 1` and `buckets[0][2][1] = 12` (This is just for convention, it's not important to understand the solution)
+## Open source projects are practically immortal
 
-On the first chance:
-1. Pig 1 is fed `1,2,3,  10,11,12,  19,20,21` (x=0 slice)
-2. Pig 2 is fed `1,4,7,  10,13,16,  19,22,25` (y=0 slice)
-3. Pig 3 is fed `1,2,3,  4,5,6,    7,8,9` (z=0 slice)
+- gone bankrupt? no problem!
 
-On the second chance:
-1. Pig 1 is fed `4,5,6,  13,14,15,  22,23,24` (x=1 slice)
-2. Pig 2 is fed `2,5,8,  11,14,17,  20,23,26` (y=1 slice)
-3. Pig 3 is fed `10,11,12,  13,14,15,  16,17,18` (z=1 slice)
+# Purity is required for the preservation of open source
 
-Suppose the poison was at `buckets[2,1,0] = 8`. Then:
-1. The 1st pig does not die, so poison must have `x=2`
-2. The 2nd pig dies when testing `y=1`, so poison has `y=1`
-3. The 3rd pig dies when testing `z=0`, so poison has `z=0`
+It is not a "win" for "open source" when projects adopt proprietary licenses, because then they aren't open source anymore. It may be a win for the developers, but even then, it is a win for proprietary software.
 
-Hopefully this helps you understand how this indexing can help locate the poisoned bucket.
+Open source directly benefits society by its nature of being open. Close down open source with "pseudo-open source" licenses and you don't get that anymore. 
 
-### Math
+# Conclusion
 
-The number of buckets that can be indexed is $(\text{chances} + 1)^{\text{pigs}}$, so we want to find $\text{pigs}$ where $(\text{chances} + 1)^{\text{pigs}} = \text{buckets}$, which is simply $\lceil log_{\text{chances} + 1}(\text{buckets}) \rceil$ (Ceiling since we can't have fractional pigs)
+I do not claim to have the ultimate solution for the improvement of the lives of open source maintainers. There are many initiatives, such as the US National Science Foundation's [POSE program](https://new.nsf.gov/tip/updates/nsf-invests-over-26m-open-source-projects) and the [NLnet Foundation](https://nlnet.nl/), which aim to fund open source projects. We ought to have more of these. Foundational projects, such as the Linux kernel or compilers, ought to be funded similarly to scientific research.
 
-
-# Approach
-Compute the log. We use the log change of base formula in the code since C++ doesn't have an arbitrary base log function.
-
-# Complexity
-- Time complexity: Whatever the time complexity of $log(x)$ is
-- Space complexity: $$O(1)$$
-
-# Code
-```
-class Solution {
-public:
-    int poorPigs(int buckets, int minutesToDie, int minutesToTest) {
-        return ceil(log2(buckets) / log2(minutesToTest / minutesToDie + 1));
-    }
-};
-```
+Yet in order to do this, we must clearly identify what is and isn't "open source". Open source software *directly* benefits society. Proprietary software, on the other hand, *might* benefit society. Open source software needs all the help it can get, for improvements are freely available and benefit everyone. Proprietary software is fully capable of supporting itself. If not, maybe they should consider being an open source project instead.
